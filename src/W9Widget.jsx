@@ -490,9 +490,39 @@ const W9Widget = () => {
                 borderRadius: '12px',
                 textAlign: 'center'
               }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: 700, color: '#c00' }}>Widget Validation Failed</h3>
-                <p style={{ margin: '0 0 16px 0', color: '#666', fontSize: '14px', lineHeight: '1.5' }}>{validationError}</p>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>
+                  {validationError.includes('Widget ID') || validationError.includes('valid UUID') || validationError.includes('Internal Server Error') ? '⚙️' : '🚫'}
+                </div>
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: 700, color: '#c00' }}>
+                  {validationError.includes('Widget ID') || validationError.includes('valid UUID') || validationError.includes('Internal Server Error') ? 'Invalid Widget ID' : 'Site Not Registered'}
+                </h3>
+                {validationError.includes('Widget ID') || validationError.includes('valid UUID') || validationError.includes('Internal Server Error') ? (
+                  <>
+                    <p style={{ margin: '0 0 16px 0', color: '#666', fontSize: '14px', lineHeight: '1.5' }}>
+                      The Widget ID is missing or invalid. Please check your embed code.
+                    </p>
+                    <p style={{ margin: '0', color: '#888', fontSize: '12px', fontStyle: 'italic' }}>
+                      Go back to <a href="https://mypowerly.com" target="_blank" rel="noopener noreferrer" style={{ color: '#2b5a7d', textDecoration: 'none', fontWeight: 'bold' }}>mypowerly.com</a>, regenerate the embed code and replace it.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ margin: '0 0 16px 0', color: '#666', fontSize: '14px', lineHeight: '1.5' }}>
+                      Your website is not registered with MyPowerly. To use this widget:
+                    </p>
+                    <div style={{ textAlign: 'left', backgroundColor: '#fff', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
+                      <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#555', lineHeight: '1.6' }}>
+                        <li>Go to <u><a href="https://mypowerly.com" target="_blank" rel="noopener noreferrer" style={{ color: '#2b5a7d', textDecoration: 'none', fontWeight: 'bold' }}>mypowerly.com</a></u></li>
+                        <li>Navigate to <strong>Widgets</strong> from sidebar</li>
+                        <li>Select <strong>MyPowerly Widget</strong></li>
+                        <li>Register your domain/website</li>
+                      </ol>
+                    </div>
+                    <p style={{ margin: 0, color: '#888', fontSize: '12px', fontStyle: 'italic' }}>
+                      Widget can only be embedded on registered sites. After registration, regenerate and replace your embed code.
+                    </p>
+                  </>
+                )}
               </div>
             ) : !widgetId ? (
               <div style={{
@@ -607,6 +637,11 @@ const W9Widget = () => {
                       onClick={(e) => {
                         e.stopPropagation();
                         setServiceDropdownOpen(!serviceDropdownOpen);
+                        if (!serviceDropdownOpen) {
+                          setTimeout(() => {
+                            contentRef.current?.scrollTo({ top: contentRef.current.scrollHeight, behavior: 'smooth' });
+                          }, 100);
+                        }
                       }}
                       style={{
                         width: '100%',

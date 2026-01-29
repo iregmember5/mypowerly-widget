@@ -1,6 +1,6 @@
 (function() {
   const widgetId = document.currentScript.getAttribute('id');
-  const widgetUrl = 'https://buyer-annotated-privacy-passed.trycloudflare.com';
+  const widgetUrl = 'https://coast-completing-band-radar.trycloudflare.com'; // will be replaced with live widget link
   
   if (!widgetId) {
     console.error('Widget ID is required. Add data-widget-id attribute to the script tag.');
@@ -69,6 +69,8 @@
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('allow', 'clipboard-write');
     
+    let widgetReady = false;
+
     window.addEventListener('message', function(event) {
       if (event.data.type === 'WIDGET_RESIZE') {
         const width = event.data.width;
@@ -85,12 +87,51 @@
           iframe.style.height = height + 'px';
         }
       } else if (event.data.type === 'WIDGET_READY') {
+        widgetReady = true;
+        clearTimeout(errorTimeout);
         iframe.style.opacity = '1';
         iframe.style.pointerEvents = 'auto';
         const loader = document.getElementById('powerly-widget-loader');
         if (loader) loader.remove();
       }
     });
+
+    // Error handling - show error if widget doesn't send WIDGET_READY within 15 seconds
+    const errorTimeout = setTimeout(() => {
+      if (!widgetReady) {
+        const loader = document.getElementById('powerly-widget-loader');
+        if (loader) {
+          loader.innerHTML = `
+            <div style="padding:8px;text-align:center;font-size:11px;color:#dc2626;font-family:system-ui,sans-serif">
+              <div style="margin-bottom:4px;font-weight:600">⚠️ Widget Error</div>
+              <div>Failed to load</div>
+            </div>
+          `;
+          loader.style.width = '120px';
+          loader.style.height = '60px';
+          loader.style.cursor = 'pointer';
+          loader.onclick = () => location.reload();
+        }
+      }
+    }, 30000);
+    
+    // Handle iframe loading errors
+    iframe.onerror = () => {
+      clearTimeout(errorTimeout);
+      const loader = document.getElementById('powerly-widget-loader');
+      if (loader) {
+        loader.innerHTML = `
+          <div style="padding:8px;text-align:center;font-size:11px;color:#dc2626;font-family:system-ui,sans-serif">
+            <div style="margin-bottom:4px;font-weight:600">⚠️ Connection Error</div>
+            <div>Click to retry</div>
+          </div>
+        `;
+        loader.style.width = '120px';
+        loader.style.height = '60px';
+        loader.style.cursor = 'pointer';
+        loader.onclick = () => location.reload();
+      }
+    };
 
     let resizeTimer;
     window.addEventListener('resize', function() {
