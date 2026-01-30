@@ -1,6 +1,6 @@
 (function() {
   const widgetId = document.currentScript.getAttribute('id');
-  const widgetUrl = 'mypowerlywidget.mypowerly.com'; // will be replaced with live widget link
+  const widgetUrl = 'https://mypowerlywidget.mypowerly.com'; // will be replaced with live widget link
   
   if (!widgetId) {
     console.error('Widget ID is required. Add data-widget-id attribute to the script tag.');
