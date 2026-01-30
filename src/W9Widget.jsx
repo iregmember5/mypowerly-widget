@@ -53,7 +53,7 @@ const W9Widget = () => {
   const widgetId = urlParams.get('id');
   const apiUrl = 'https://esign-admin.signmary.com';
 
-  useEffect(() => {
+  useEffect(() => { 
     const validateWidget = async () => {
       if (!widgetId) {
         setValidationError('Widget ID is missing');
