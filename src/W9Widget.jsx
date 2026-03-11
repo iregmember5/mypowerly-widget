@@ -121,9 +121,9 @@ const W9Widget = () => {
               setAvailableForms(settings.enabled_forms_details);
             }
             
-            if (settings.chat_widget_url) {
-              setChatWidgetUrl(settings.chat_widget_url);
-            }
+          if (settings.live_chat_url) {
+            setChatWidgetUrl(settings.live_chat_url);
+          }
             lastUnregisteredResponse = null;
             break;
           }
@@ -257,7 +257,7 @@ const W9Widget = () => {
       window.parent.postMessage({ type: 'WIDGET_RESIZE', width, height }, '*');
     }
   };
-
+  // notifyResize(80, 80);
   const handleOpen = () => {
     setIsOpen(true);
     setShowServiceForm(false);
