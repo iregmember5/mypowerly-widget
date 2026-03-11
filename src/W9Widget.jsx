@@ -68,7 +68,7 @@ const W9Widget = () => {
         if (!currentUrl || currentUrl === '') {
           currentUrl = window.location.href;
         }
-        
+
         const isLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
         if (isLocalhost) {
           setIsDevelopmentMode(true);
@@ -148,6 +148,9 @@ const W9Widget = () => {
         setValidationError(error.message || 'Failed to validate widget');
       } finally {
         setIsValidating(false);
+        if (!isOpen) {
+          notifyResize(80, 80);
+        }
         if (window.parent) {
           window.parent.postMessage({ type: 'WIDGET_READY' }, '*');
         }
@@ -187,6 +190,11 @@ const W9Widget = () => {
         position: fixed !important;
         width: 100% !important;
         height: 100% !important;
+      }
+
+      @keyframes spin { 
+        0% { transform: rotate(0deg); } 
+        100% { transform: rotate(360deg); } 
       }
     `;
     document.head.appendChild(style);
