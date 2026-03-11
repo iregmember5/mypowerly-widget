@@ -28,6 +28,7 @@ const W9Widget = () => {
   const [validationError, setValidationError] = useState(null);
   const [isDevelopmentMode, setIsDevelopmentMode] = useState(false);
   const [chatWidgetUrl, setChatWidgetUrl] = useState(null);
+  const [apiBaseUrl, setApiBaseUrl] = useState(null);
   const [showExclamation, setShowExclamation] = useState(true);
   const [siteName, setSiteName] = useState('MyPowerly');
   const contentRef = useRef(null);
@@ -51,7 +52,7 @@ const W9Widget = () => {
 
   const urlParams = new URLSearchParams(window.location.search);
   const widgetId = urlParams.get('id');
-  const apiUrl = 'https://esign-admin.signmary.com';
+  const apiBaseUrls = ['https://mypowerly.com/v1', 'https://esign-admin.signmary.com'];
 
   useEffect(() => { 
     const validateWidget = async () => {
@@ -62,6 +63,7 @@ const W9Widget = () => {
       }
 
       try {
+        setApiBaseUrl(null);
         let currentUrl = document.referrer;
         if (!currentUrl || currentUrl === '') {
           currentUrl = window.location.href;
@@ -70,6 +72,7 @@ const W9Widget = () => {
         const isLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
         if (isLocalhost) {
           setIsDevelopmentMode(true);
+          setApiBaseUrl(apiBaseUrls[0]);
           setValidationError(null);
           setIsValidating(false);
           if (window.parent) {
@@ -79,45 +82,67 @@ const W9Widget = () => {
         }
         
         const domain = new URL(currentUrl).origin;
-        const validationUrl = `${apiUrl}/blogs/api/v2/widget-settings/validate-frontend-url/`;
-        
-        const response = await fetch(validationUrl, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          mode: 'cors',
-          credentials: 'omit',
-          body: JSON.stringify({ frontend_url: domain, workspace_id: widgetId })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.details || data.message || `HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        if (data.registered && data.widget_settings) {
-          setValidationError(null);
-          setSiteName(data.site_name || new URL(domain).hostname);
-          
-          const settings = data.widget_settings;
-          setAvailableServices({
-            serviceRequest: settings.service_request_enabled,
-            aiChatbot: settings.ai_chatbot_enabled,
-            liveChat: settings.live_chat_enabled
+        const validationPath = '/blogs/api/v2/widget-settings/validate-frontend-url/';
+
+        let lastUnregisteredResponse = null;
+
+        for (const baseUrl of apiBaseUrls) {
+          const validationUrl = `${baseUrl}${validationPath}`;
+          const response = await fetch(validationUrl, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit',
+            body: JSON.stringify({ frontend_url: domain, workspace_id: widgetId })
           });
           
-          if (settings.enabled_forms_details) {
-            setAvailableForms(settings.enabled_forms_details);
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.details || data.message || `HTTP ${response.status}: ${response.statusText}`);
           }
           
-          if (settings.chat_widget_url) {
-            setChatWidgetUrl(settings.chat_widget_url);
+          if (data.registered && data.widget_settings) {
+            setValidationError(null);
+            setSiteName(data.site_name || new URL(domain).hostname);
+            setApiBaseUrl(baseUrl);
+            
+            const settings = data.widget_settings;
+            setAvailableServices({
+              serviceRequest: settings.service_request_enabled,
+              aiChatbot: settings.ai_chatbot_enabled,
+              liveChat: settings.live_chat_enabled
+            });
+            
+            if (settings.enabled_forms_details) {
+              setAvailableForms(settings.enabled_forms_details);
+            }
+            
+            if (settings.chat_widget_url) {
+              setChatWidgetUrl(settings.chat_widget_url);
+            }
+            lastUnregisteredResponse = null;
+            break;
           }
-        } else {
+
+          const isFrontendNotRegistered = data?.registered === false
+            && data?.message === 'Frontend URL is not registered';
+
+          if (isFrontendNotRegistered) {
+            lastUnregisteredResponse = data;
+            continue;
+          }
+
           setValidationError(data.message || 'Domain not registered in MyPowerly Widget settings');
+          lastUnregisteredResponse = null;
+          break;
+        }
+
+        if (lastUnregisteredResponse) {
+          setValidationError(lastUnregisteredResponse.message || 'Domain not registered in MyPowerly Widget settings');
         }
       } catch (error) {
         setValidationError(error.message || 'Failed to validate widget');
@@ -197,7 +222,9 @@ const W9Widget = () => {
         note
       };
 
-      const response = await fetch('https://esign-admin.signmary.com/api/widgets/submit-form/', {
+      const submitUrl = `${apiBaseUrl || apiBaseUrls[0]}/api/widgets/submit-form/`;
+
+      const response = await fetch(submitUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
