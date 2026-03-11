@@ -619,11 +619,12 @@ const W9Widget = () => {
                   src={chatWidgetUrl || ''}
                   onLoad={() => setIframeLoading(false)}
                   style={{
+                    position: 'absolute',
+                    inset: 0,
                     width: '100%',
                     height: '100%',
                     border: 'none',
-                    display: 'block',
-                    margin: '-30px 0 0 0'
+                    display: 'block'
                   }}
                   title="Live Chat"
                 />
