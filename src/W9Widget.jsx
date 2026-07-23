@@ -19,6 +19,8 @@ const W9Widget = () => {
   const [note, setNote] = useState('');
   const [selectedForms, setSelectedForms] = useState([]);
   const [availableForms, setAvailableForms] = useState([]);
+  const [w9ChaserEnabled, setW9ChaserEnabled] = useState(false);
+  const [selectedW9Chaser, setSelectedW9Chaser] = useState(false);
   const [availableServices, setAvailableServices] = useState({
     serviceRequest: true,
     aiChatbot: true,
@@ -68,7 +70,6 @@ const W9Widget = () => {
         if (!currentUrl || currentUrl === '') {
           currentUrl = window.location.href;
         }
-
         const isLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
         if (isLocalhost) {
           setIsDevelopmentMode(true);
@@ -116,6 +117,7 @@ const W9Widget = () => {
               aiChatbot: settings.ai_chatbot_enabled,
               liveChat: settings.live_chat_enabled
             });
+            setW9ChaserEnabled(settings.w9_1099_chaser_enabled ?? false);
             
             if (settings.enabled_forms_details) {
               setAvailableForms(settings.enabled_forms_details);
@@ -203,7 +205,7 @@ const W9Widget = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!name || !email || !phone || selectedForms.length === 0) {
+    if (!name || !email || !phone || (selectedForms.length === 0 && !selectedW9Chaser)) {
       toast.push(<Notification type="danger">Please fill all required fields</Notification>);
       return;
     }
@@ -227,7 +229,8 @@ const W9Widget = () => {
         email,
         phone,
         reference_id: referenceId,
-        note
+        note,
+        request_w9: selectedW9Chaser
       };
 
       const submitUrl = `${apiBaseUrl || apiBaseUrls[0]}/api/widgets/submit-form/`;
@@ -248,6 +251,7 @@ const W9Widget = () => {
         setReferenceId('');
         setNote('');
         setSelectedForms([]);
+        setSelectedW9Chaser(false);
         setIsOpen(false);
       } else {
         const errorMsg = data.message || data.error || data.details || 'Failed to submit form. Please try again.';
@@ -278,6 +282,7 @@ const W9Widget = () => {
     setReferenceId('');
     setNote('');
     setSelectedForms([]);
+    setSelectedW9Chaser(false);
     notifyResize(380, 500);
   };
 
@@ -293,6 +298,7 @@ const W9Widget = () => {
     setReferenceId('');
     setNote('');
     setSelectedForms([]);
+    setSelectedW9Chaser(false);
     notifyResize(80, 80);
   };
 
@@ -302,7 +308,7 @@ const W9Widget = () => {
       return;
     }
     if (selectedService === 'service-request') {
-      if (selectedForms.length === 0) {
+      if (selectedForms.length === 0 && !selectedW9Chaser) {
         toast.push(<Notification type="danger">Please select at least one form type</Notification>);
         return;
       }
@@ -744,7 +750,7 @@ const W9Widget = () => {
                   </div>
                 </div>
 
-                {selectedService === 'service-request' && availableForms.length > 0 && (
+                {selectedService === 'service-request' && (availableForms.length > 0 || w9ChaserEnabled) && (
                   <div style={{ marginBottom: '20px' }}>
                     <label style={{
                       display: 'block',
@@ -764,7 +770,7 @@ const W9Widget = () => {
                         <button
                           key={form.id}
                           type="button"
-                          onClick={() => setSelectedForms([form.id.toString()])}
+                          onClick={() => { setSelectedForms([form.id.toString()]); setSelectedW9Chaser(false); }}
                           style={{
                             padding: '8px 14px',
                             border: selectedForms.includes(form.id.toString()) ? '2px solid #2b5a7d' : '2px solid #e5e7eb',
@@ -782,26 +788,47 @@ const W9Widget = () => {
                           {form.title}
                         </button>
                       ))}
+                      {w9ChaserEnabled && (
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedW9Chaser(!selectedW9Chaser); setSelectedForms([]); }}
+                          style={{
+                            padding: '8px 14px',
+                            border: selectedW9Chaser ? '2px solid #2b5a7d' : '2px solid #e5e7eb',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            backgroundColor: selectedW9Chaser ? '#f0f9ff' : 'white',
+                            color: selectedW9Chaser ? '#2b5a7d' : '#374151',
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            transition: 'all 0.2s',
+                            outline: 'none'
+                          }}
+                        >
+                          W9 & 1099 Chaser
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
                 <button
                   type="button"
                   onClick={handleServiceSelect}
-                  disabled={!selectedService || (selectedService === 'service-request' && selectedForms.length === 0)}
+                  disabled={!selectedService || (selectedService === 'service-request' && selectedForms.length === 0 && !selectedW9Chaser)}
                   style={{
                     width: '100%',
                     padding: '14px',
-                    background: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0)) ? '#2b5a7d' : '#cbd5e1',
+                    background: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0 || selectedW9Chaser)) ? '#2b5a7d' : '#cbd5e1',
                     color: 'white',
                     border: 'none',
                     borderRadius: '10px',
-                    cursor: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0)) ? 'pointer' : 'not-allowed',
+                    cursor: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0 || selectedW9Chaser)) ? 'pointer' : 'not-allowed',
                     fontSize: '15px',
                     fontWeight: 600,
-                    boxShadow: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0)) ? '0 4px 12px rgba(43, 90, 125, 0.4)' : 'none',
+                    boxShadow: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0 || selectedW9Chaser)) ? '0 4px 12px rgba(43, 90, 125, 0.4)' : 'none',
                     transition: 'all 0.2s',
-                    opacity: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0)) ? 1 : 0.6
+                    opacity: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0 || selectedW9Chaser)) ? 1 : 0.6
                   }}
                 >
                   Continue →
