@@ -1,6 +1,14 @@
 (function() {
+  // ============ TESTING CONFIG ============
+  const DEV_MODE = false;                                          // Set to true for local testing
+  const DEV_WIDGET_URL = 'http://localhost:5174/';                // Local widget URL when DEV_MODE is true
+  const DEV_DOMAIN = 'https://test.com';                          // Registered Domain to use for API calls when DEV_MODE is true
+  const PROD_WIDGET_URL = 'https://mypowerlywidget.mypowerly.com'; // Live widget URL
+  // =========================================
+
   const widgetId = document.currentScript.getAttribute('id');
-  const widgetUrl = 'https://mypowerlywidget.mypowerly.com'; // will be replaced with live widget link
+  const widgetUrl = DEV_MODE ? DEV_WIDGET_URL : PROD_WIDGET_URL;
+  const devParams = DEV_MODE ? `&dev=true&devDomain=${encodeURIComponent(DEV_DOMAIN)}` : '';
   
   if (!widgetId) {
     console.error('Widget ID is required. Add data-widget-id attribute to the script tag.');
@@ -31,7 +39,7 @@
 
     const iframe = document.createElement('iframe');
     iframe.id = 'powerly-widget-iframe';
-    iframe.src = `${widgetUrl}?id=${encodeURIComponent(widgetId)}`;
+    iframe.src = `${widgetUrl}?id=${encodeURIComponent(widgetId)}${devParams}`;
     
     const baseStyles = {
       position: 'fixed',

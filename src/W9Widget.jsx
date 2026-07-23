@@ -54,6 +54,8 @@ const W9Widget = () => {
 
   const urlParams = new URLSearchParams(window.location.search);
   const widgetId = urlParams.get('id');
+  const devMode = urlParams.get('dev') === 'true';
+  const devDomain = urlParams.get('devDomain') || 'https://test.com';
   const apiBaseUrls = ['https://mypowerly.com/v1', 'https://esign-admin.signmary.com'];
 
   useEffect(() => { 
@@ -72,14 +74,17 @@ const W9Widget = () => {
         }
         const isLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
         if (isLocalhost) {
-          setIsDevelopmentMode(true);
-          setApiBaseUrl(apiBaseUrls[0]);
-          setValidationError(null);
-          setIsValidating(false);
-          if (window.parent) {
-            window.parent.postMessage({ type: 'WIDGET_READY' }, '*');
+          if (!devMode) {
+            setIsDevelopmentMode(true);
+            setApiBaseUrl(apiBaseUrls[0]);
+            setValidationError(null);
+            setIsValidating(false);
+            if (window.parent) {
+              window.parent.postMessage({ type: 'WIDGET_READY' }, '*');
+            }
+            return;
           }
-          return;
+          currentUrl = devDomain;
         }
         
         const domain = new URL(currentUrl).origin;
@@ -218,7 +223,11 @@ const W9Widget = () => {
     setLoading(true);
 
     try {
-      const currentUrl = document.referrer || window.location.href;
+      let currentUrl = document.referrer || window.location.href;
+      const isLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
+      if (isLocalhost && devMode) {
+        currentUrl = devDomain;
+      }
       const domain = new URL(currentUrl).origin;
       
       const payload = {
