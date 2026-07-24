@@ -779,7 +779,13 @@ const W9Widget = () => {
                         <button
                           key={form.id}
                           type="button"
-                          onClick={() => { setSelectedForms([form.id.toString()]); setSelectedW9Chaser(false); }}
+                          onClick={() => {
+                            setSelectedForms(prev =>
+                              prev.includes(form.id.toString())
+                                ? prev.filter(id => id !== form.id.toString())
+                                : [...prev, form.id.toString()]
+                            );
+                          }}
                           style={{
                             padding: '8px 14px',
                             border: selectedForms.includes(form.id.toString()) ? '2px solid #2b5a7d' : '2px solid #e5e7eb',
@@ -800,7 +806,7 @@ const W9Widget = () => {
                       {w9ChaserEnabled && (
                         <button
                           type="button"
-                          onClick={() => { setSelectedW9Chaser(!selectedW9Chaser); setSelectedForms([]); }}
+                          onClick={() => setSelectedW9Chaser(!selectedW9Chaser)}
                           style={{
                             padding: '8px 14px',
                             border: selectedW9Chaser ? '2px solid #2b5a7d' : '2px solid #e5e7eb',
