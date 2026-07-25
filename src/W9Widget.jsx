@@ -635,7 +635,7 @@ const W9Widget = () => {
                   onLoad={() => setIframeLoading(false)}
                   style={{
                     width: '100%',
-                    height: '100%',
+                    height: 'calc(100% + 210px)',
                     border: 'none',
                     display: 'block',
                     margin: '-30px 0 0 0'
