@@ -39,7 +39,8 @@
 
     const iframe = document.createElement('iframe');
     iframe.id = 'powerly-widget-iframe';
-    iframe.src = `${widgetUrl}?id=${encodeURIComponent(widgetId)}${devParams}`;
+    const cacheBust = DEV_MODE ? '' : '&v=' + Date.now();
+    iframe.src = `${widgetUrl}?id=${encodeURIComponent(widgetId)}${devParams}${cacheBust}`;
     
     const baseStyles = {
       position: 'fixed',
