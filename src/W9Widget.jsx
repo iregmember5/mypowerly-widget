@@ -293,7 +293,8 @@ const W9Widget = () => {
     setNote('');
     setSelectedForms([]);
     setSelectedW9Chaser(false);
-    notifyResize(380, 500);
+    notifyResize(380, 600);
+    setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   };
 
   const handleClose = () => {
@@ -348,6 +349,7 @@ const W9Widget = () => {
     setSelectedService('');
     setServiceDropdownOpen(false);
     notifyResize(380, 500);
+    setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
 
   return (
@@ -492,36 +494,32 @@ const W9Widget = () => {
           <div style={{
             background: '#1e4a63',
             overflow: 'hidden',
-            whiteSpace: 'nowrap',
-            padding: '6px 0',
+            whiteSpace: 'normal',
+            padding: '6px 8px',
             borderTop: '1px solid rgba(255,255,255,0.15)',
-            flexShrink: 0
+            flexShrink: 0,
+            textAlign: 'center'
           }}>
             <div style={{
-              display: 'inline-block',
-              animation: 'ticker 15s linear infinite',
+              display: 'block',
               fontSize: '12px',
               fontWeight: 600,
               color: '#fbbf24'
             }}>
-              Special 2026 Offer — All Prior Years Free &nbsp;&nbsp;|&nbsp;&nbsp; Get Your W-9 & 1099 Forms Delivered Instantly &nbsp;&nbsp;|&nbsp;&nbsp; AI-Powered Tax Form Assistance &nbsp;&nbsp;|&nbsp;&nbsp; Special 2026 Offer — All Prior Years Free &nbsp;&nbsp;|&nbsp;&nbsp; Get Your W-9 & 1099 Forms Delivered Instantly &nbsp;&nbsp;|&nbsp;&nbsp; AI-Powered Tax Form Assistance
+              Special 2026 Offer — All Prior Years Free &nbsp;&nbsp;|&nbsp;&nbsp; Get Your W-9 & 1099 Forms Delivered Instantly &nbsp;&nbsp;|&nbsp;&nbsp; AI-Powered Tax Form Assistance
             </div>
-            <style>{`
-              @keyframes ticker {
-                0% { transform: translateX(0); }
-                100% { transform: translateX(-50%); }
-              }
-            `}</style>
           </div>
 
           <div ref={contentRef} style={{ 
             flex: 1,
-            overflowY: showLiveChat ? 'hidden' : 'auto',
+            overflowY: 'auto',
             overflowX: 'hidden',
-            padding: showLiveChat ? '0' : '24px',
+            padding: showLiveChat ? '0' : '10px',
+            paddingBottom: showLiveChat ? '0' : '14px',
             minHeight: 0,
             display: showLiveChat ? 'block' : 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            overscrollBehavior: 'contain'
           }}>
             {isValidating ? (
               <div style={{
@@ -622,11 +620,17 @@ const W9Widget = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#6b7280',
-                  fontSize: '14px'
+                  color: '#374151',
+                  fontSize: '32px',
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  padding: '12px'
                 }}>
-                  AI Chatbot - Coming Soon
-                </div>
+                      <div>
+                        <div style={{ fontSize: '32px', fontWeight: 800, color: '#2b5a7d' }}>AI Chatbot</div>
+                        <div style={{ fontSize: '28px', fontWeight: 700, color: '#374151', marginTop: '8px' }}>Coming Soon</div>
+                      </div>
+                    </div>
               </div>
             ) : showLiveChat ? (
               <div style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
@@ -673,30 +677,31 @@ const W9Widget = () => {
               <>
                 <div style={{
                   background: 'linear-gradient(135deg, #2b5a7d 0%, #1e4a63 100%)',
-                  margin: '-24px -24px 0 -24px',
-                  padding: '32px 24px',
+                  margin: '-16px -16px 0 -16px',
+                  padding: '18px 16px',
                   textAlign: 'center',
                   color: 'white',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center'
                 }}>
-                  <img src="/parrot.svg" alt="Parrot" style={{ width: '48px', height: '48px', marginBottom: '12px', transform: 'scaleX(-1)' }} />
+                  <img src="/parrot.svg" alt="Parrot" style={{ width: '36px', height: '36px', marginBottom: '8px', transform: 'scaleX(-1)' }} />
                   <h2 style={{
-                    margin: '0 0 8px 0',
-                    fontSize: '24px',
+                    margin: '0 0 6px 0',
+                    fontSize: '20px',
                     fontWeight: 600,
-                    color: 'white'
+                    color: 'white',
+                    lineHeight: '1.1'
                   }}>
                     Welcome to {siteName}
                   </h2>
-                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: '14px' }}>
+                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: '13px', lineHeight: '1.2' }}>
                     Select a service below. We're here to help 24x7.
                   </p>
                 </div>
 
-                <div style={{ padding: '20px 0' }}>
-                <div style={{ marginBottom: '20px' }}>
+                <div style={{ padding: '12px 0' }}>
+                <div style={{ marginBottom: '12px' }}>
                   <label style={{
                     display: 'block',
                     marginBottom: '8px',
@@ -718,12 +723,12 @@ const W9Widget = () => {
                           }, 100);
                         }
                       }}
-                      style={{
+                        style={{
                         width: '100%',
-                        padding: '12px 16px',
+                        padding: '10px 12px',
                         border: '2px solid #e5e7eb',
                         borderRadius: '10px',
-                        fontSize: '14px',
+                        fontSize: '13px',
                         backgroundColor: 'white',
                         cursor: 'pointer',
                         textAlign: 'left',
@@ -785,20 +790,34 @@ const W9Widget = () => {
                 </div>
 
                 {selectedService === 'service-request' && (availableForms.length > 0 || w9ChaserEnabled) && (
-                  <div style={{ marginBottom: '20px' }}>
+                  <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                     <label style={{
                       display: 'block',
-                      marginBottom: '12px',
+                      margin: 0,
                       fontSize: '14px',
                       fontWeight: 600,
                       color: '#374151'
                     }}>
-                      Select form types
+                      Select type of service request below:
                     </label>
+                    <div style={{ marginTop: '8px' }}>
+                      <span className="blinking-arrow" style={{ fontSize: '24px', color: '#1d4ed8', fontWeight: 700 }}>⬇</span>
+                    </div>
+                    <style>{`
+                      @keyframes blink-bounce {
+                        0%, 100% { opacity: 1; transform: translateY(0); }
+                        50% { opacity: 0.3; transform: translateY(6px); }
+                      }
+                      .blinking-arrow {
+                        display: inline-block;
+                        animation: blink-bounce 1.2s infinite ease-in-out;
+                      }
+                    `}</style>
                     <div style={{
                       display: 'flex',
                       flexWrap: 'wrap',
-                      gap: '8px'
+                      gap: '8px',
+                      justifyContent: 'center'
                     }}>
                       {availableForms.map((form) => (
                         <button
@@ -877,25 +896,25 @@ const W9Widget = () => {
               </>
 
             ) : (
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{
                   background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-                  padding: '20px',
+                  padding: '16px',
                   borderRadius: '12px',
-                  marginBottom: '8px',
+                  marginBottom: '6px',
                   textAlign: 'center'
                 }}>
                   <h2 style={{
                     margin: 0,
-                    fontSize: '20px',
+                    fontSize: '19px',
                     fontWeight: 700,
                     color: '#2b5a7d'
                   }}>
-                    Request for {[...selectedForms.map(f => availableForms.find(form => form.id.toString() === f)?.title).filter(Boolean), ...(selectedW9Chaser ? ['W9 & 1099 Chaser'] : [])].join(', ')}
+                    Request for {[...selectedForms.map(f => availableForms.find(form => form.id.toString() === f)?.title).filter(Boolean), ...(selectedW9Chaser ? ['W9 & 1099'] : [])].join(', ')}
                   </h2>
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
                     Name *
                   </label>
                   <Input
@@ -909,7 +928,7 @@ const W9Widget = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
                     Email *
                   </label>
                   <Input
@@ -923,7 +942,7 @@ const W9Widget = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
                     Phone Number *
                   </label>
                   <Input
@@ -937,7 +956,7 @@ const W9Widget = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
                     Reference ID
                     <span title="If a contractor has asked you to fill out the W9 form, please provide the reference number they gave you. Or else provide their cell phone number or email address in this field." style={{ cursor: 'help', marginLeft: '4px', fontSize: '12px', color: '#9ca3af' }}>ⓘ</span>
                   </label>
@@ -952,7 +971,7 @@ const W9Widget = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
                     Note (Optional)
                   </label>
                   <textarea
@@ -963,11 +982,12 @@ const W9Widget = () => {
                     rows={2}
                     style={{
                       width: '100%',
-                      padding: '10px 12px',
+                      padding: '8px 10px',
                       border: '1px solid #d1d5db',
                       borderRadius: '8px',
                       fontSize: '14px',
                       fontFamily: 'inherit',
+                      maxHeight: '50px',
                       resize: 'none',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -982,10 +1002,13 @@ const W9Widget = () => {
                   variant="solid"
                   loading={loading}
                   style={{ 
-                    width: '100%', 
-                    backgroundColor: '#2b5a7d', 
+                    width: '100%',
+                    backgroundColor: '#2b5a7d',
                     color: 'white',
-                    marginTop: '8px'
+                    marginTop: '8px',
+                    padding: '12px 16px',
+                    fontSize: '15px',
+                    borderRadius: '10px'
                   }}
                 >
                   {loading ? 'Submitting...' : 'Submit Request'}

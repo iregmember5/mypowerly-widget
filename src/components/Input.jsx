@@ -8,7 +8,7 @@ const Input = ({ type = 'text', value, onChange, placeholder, disabled, style })
       disabled={disabled}
       style={{
         width: '100%',
-        padding: '10px 12px',
+        padding: '9px 10px',
         border: '1px solid #d1d5db',
         borderRadius: '8px',
         fontSize: '14px',
