@@ -13,6 +13,13 @@ const getFaviconUrl = (url) => {
   }
 };
 
+const getExternalUrl = (url) => {
+  const trimmedUrl = url?.trim();
+  if (!trimmedUrl) return '';
+
+  return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+};
+
 const W9Widget = () => {
   const [email, setEmail] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -44,6 +51,7 @@ const W9Widget = () => {
   const [showExclamation, setShowExclamation] = useState(true);
   const [siteName, setSiteName] = useState('MyPowerly');
   const [footerLogo, setFooterLogo] = useState('');
+  const [footerLogoUrl, setFooterLogoUrl] = useState('');
   const [footerName, setFooterName] = useState('');
   const [footerDescription, setFooterDescription] = useState('');
   const [footerFacebook, setFooterFacebook] = useState('');
@@ -151,6 +159,7 @@ const W9Widget = () => {
             }
 
             setFooterLogo(settings.footer_logo || '');
+            setFooterLogoUrl(settings.footer_logo_url || '');
             setFooterName(settings.footer_name || '');
             setFooterDescription(settings.footer_description || '');
             setFooterFacebook(settings.footer_facebook || '');
@@ -382,6 +391,8 @@ const W9Widget = () => {
     notifyResize(380, 500);
     setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
+
+  const footerLogoHref = getExternalUrl(footerLogoUrl);
 
   return (
     <div style={{ 
@@ -1061,7 +1072,18 @@ const W9Widget = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {footerLogo ? (
-                <img src={footerLogo} alt="Logo" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                footerLogoHref ? (
+                  <a
+                    href={footerLogoHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'flex', cursor: 'pointer' }}
+                  >
+                    <img src={footerLogo} alt="Logo" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                  </a>
+                ) : (
+                  <img src={footerLogo} alt="Logo" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                )
               ) : (
                 <div style={{
                   width: '36px',
