@@ -3,21 +3,34 @@ import Button from './components/Button';
 import Input from './components/Input';
 import { Notification, toast } from './components/Toast';
 
-const getFaviconUrl = (url) => {
-  try {
-    const fullUrl = url.startsWith('http') ? url : `https://${url}`;
-    const domain = new URL(fullUrl).hostname;
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-  } catch {
-    return null;
-  }
-};
+const DEFAULT_PLATFORM_LOGO = '/parrot.svg';
 
 const getExternalUrl = (url) => {
   const trimmedUrl = url?.trim();
   if (!trimmedUrl) return '';
 
   return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+};
+
+const getFaviconUrl = (url) => {
+  try {
+    return `https://www.google.com/s2/favicons?domain=${new URL(getExternalUrl(url)).hostname}&sz=64`;
+  } catch {
+    return '';
+  }
+};
+
+const getSocialBrand = (url) => {
+  const value = url?.toLowerCase() || '';
+
+  if (value.includes('instagram')) return { label: '◎', color: '#e1306c' };
+  if (value.includes('tiktok')) return { label: '♪', color: '#111827' };
+  if (value.includes('twitter') || value.includes('x.com')) return { label: '𝕏', color: '#111827' };
+  if (value.includes('facebook')) return { label: 'f', color: '#1877f2' };
+  if (value.includes('linkedin')) return { label: 'in', color: '#0a66c2' };
+  if (value.includes('youtube')) return { label: '▶', color: '#ff0000' };
+
+  return { label: '↗', color: '#64748b' };
 };
 
 const W9Widget = () => {
@@ -50,14 +63,13 @@ const W9Widget = () => {
   const [apiBaseUrl, setApiBaseUrl] = useState(null);
   const [showExclamation, setShowExclamation] = useState(true);
   const [siteName, setSiteName] = useState('MyPowerly');
-  const [footerLogo, setFooterLogo] = useState('');
+  const [adminLogoUrl, setAdminLogoUrl] = useState('');
   const [footerLogoUrl, setFooterLogoUrl] = useState('');
-  const [footerName, setFooterName] = useState('');
-  const [footerDescription, setFooterDescription] = useState('');
-  const [footerFacebook, setFooterFacebook] = useState('');
-  const [footerYoutube, setFooterYoutube] = useState('');
-  const [footerLinkedin, setFooterLinkedin] = useState('');
+  const [agencyLogo, setAgencyLogo] = useState('');
+  const [agencyName, setAgencyName] = useState('');
+  const [agencySupportUrl, setAgencySupportUrl] = useState('');
   const [customSocialLinks, setCustomSocialLinks] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
   const contentRef = useRef(null);
 
   useEffect(() => {
@@ -158,18 +170,35 @@ const W9Widget = () => {
               setChatWidgetUrl(settings.live_chat_url);
             }
 
-            setFooterLogo(settings.footer_logo || '');
-            setFooterLogoUrl(settings.footer_logo_url || '');
-            setFooterName(settings.footer_name || '');
-            setFooterDescription(settings.footer_description || '');
-            setFooterFacebook(settings.footer_facebook || '');
-            setFooterYoutube(settings.footer_youtube || '');
-            setFooterLinkedin(settings.footer_linkedin || '');
-            setCustomSocialLinks(
-              Array.isArray(settings.custom_social_links)
-                ? settings.custom_social_links.filter(l => l && l.url)
-                : []
+            setAdminLogoUrl(settings.footer_logo || settings.admin_logo_url || '');
+            setFooterLogoUrl(
+              settings.footer_logo_url
+              || settings.logo_link
+              || settings.platform_url
+              || settings.admin_platform_url
+              || ''
             );
+            setAgencyLogo(settings.agency_logo || '');
+            setAgencyName(settings.agency_name || '');
+            setAgencySupportUrl(settings.agency_support_url || '');
+            const configuredSocialLinks = Array.isArray(settings.custom_social_links)
+              ? settings.custom_social_links
+                .map((link) => ({
+                  ...link,
+                  url: link?.url || link?.href || link?.link || link?.social_url || ''
+                }))
+                .filter((link) => link.url)
+              : [];
+            const legacySocialLinks = [
+              { url: settings.footer_instagram, label: 'Instagram' },
+              { url: settings.footer_tiktok, label: 'TikTok' },
+              { url: settings.footer_twitter || settings.footer_x, label: 'X' },
+              { url: settings.footer_facebook, label: 'Facebook' },
+              { url: settings.footer_youtube, label: 'YouTube' },
+              { url: settings.footer_linkedin, label: 'LinkedIn' }
+            ].filter((link) => link.url);
+            setCustomSocialLinks([...configuredSocialLinks, ...legacySocialLinks]);
+            setUserProfile(settings.user_profile || null);
 
             lastUnregisteredResponse = null;
             break;
@@ -392,7 +421,14 @@ const W9Widget = () => {
     setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
 
-  const footerLogoHref = getExternalUrl(footerLogoUrl);
+  const platformHref = getExternalUrl(footerLogoUrl) || 'https://mypowerly.com';
+  const agencyHref = getExternalUrl(agencySupportUrl) || platformHref;
+  const profileAvatar = typeof userProfile === 'string'
+    ? userProfile
+    : userProfile?.avatar_url || userProfile?.avatar || userProfile?.image_url || '';
+  const profileName = typeof userProfile === 'object'
+    ? userProfile?.name || userProfile?.display_name || 'User profile'
+    : 'User profile';
 
   return (
     <div style={{ 
@@ -1061,117 +1097,56 @@ const W9Widget = () => {
             )}
           </div>
 
-          <div style={{
-            padding: '12px 16px',
-            borderTop: '1px solid #e5e7eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexShrink: 0,
-            background: '#f9fafb'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {footerLogo ? (
-                footerLogoHref ? (
-                  <a
-                    href={footerLogoHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ display: 'flex', cursor: 'pointer' }}
-                  >
-                    <img src={footerLogo} alt="Logo" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
-                  </a>
-                ) : (
-                  <img src={footerLogo} alt="Logo" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
-                )
-              ) : (
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #2b5a7d, #1e4a63)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '16px',
-                  color: 'white',
-                  fontWeight: 700,
-                  flexShrink: 0
-                }}>
-                  {footerName ? footerName.charAt(0).toUpperCase() : siteName.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1f2937', lineHeight: 1.2 }}>{footerName || siteName}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280' }}>{footerDescription || 'Tax Services'}</div>
+          <div className="w-full mt-auto text-xs" style={{ flexShrink: 0 }}>
+            <div className="flex items-center justify-between w-full gap-1 px-2 py-1.5 bg-gray-50 border-t border-gray-200">
+              <div className="flex flex-1 items-center gap-1.5">
+                <a href={platformHref} target="_blank" rel="noopener noreferrer" title="Visit MyPowerly" className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
+                <img
+                  src={adminLogoUrl || DEFAULT_PLATFORM_LOGO}
+                  alt="Platform logo"
+                  className="h-7 w-7 rounded object-contain"
+                  onError={(event) => { event.currentTarget.src = DEFAULT_PLATFORM_LOGO; }}
+                />
+                </a>
+              </div>
+
+              <div className="flex flex-1 justify-center">
+                <a href={agencyHref} target="_blank" rel="noopener noreferrer" title={agencyName || 'Agency Support'} className="flex flex-shrink-0 max-w-full items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-gray-200 shadow-2xs text-[11px] text-gray-600 font-medium transition-colors hover:bg-gray-50">
+                  {agencyLogo ? (
+                    <img src={agencyLogo} alt={agencyName || 'Agency logo'} className="h-4 max-w-16 object-contain" />
+                  ) : (
+                    <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 14a8 8 0 0 1 16 0" /><path d="M18 19c0 1.1-.9 2-2 2h-1v-4h3v2ZM6 19c0 1.1.9 2 2 2h1v-4H6v2Z" /></svg>
+                  )}
+                  <span className="max-w-24 truncate">{agencyName || 'Agency Support'}</span>
+                </a>
+              </div>
+
+              <div className="flex flex-1 items-center justify-end gap-1">
+                {customSocialLinks.map((link) => {
+                  const socialBrand = getSocialBrand(link.url);
+
+                  return (
+                    <a key={link.id || link.url} href={getExternalUrl(link.url)} target="_blank" rel="noopener noreferrer" title={link.label || link.name || 'Social link'} className="flex-shrink-0 rounded-full p-1 transition-transform hover:scale-110">
+                      <span
+                        className="relative flex w-5 h-5 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-white"
+                        style={{ backgroundColor: socialBrand.color }}
+                      >
+                        {socialBrand.label}
+                        <img src={link.icon_url || link.iconUrl || getFaviconUrl(link.url)} alt="" className="absolute inset-0 w-5 h-5 bg-transparent object-contain" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                      </span>
+                    </a>
+                  );
+                })}
+                {profileAvatar ? (
+                  <img src={profileAvatar} alt={profileName} title={profileName} className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-200 object-cover" />
+                ) : customSocialLinks.length === 0 ? (
+                  <svg aria-label="User profile" className="flex-shrink-0 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="3" /><path d="M6 20a6 6 0 0 1 12 0" /></svg>
+                ) : null}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {footerFacebook && (
-                <a href={footerFacebook} target="_blank" rel="noopener noreferrer" style={{
-                  width: '26px', height: '26px', borderRadius: '50%', background: '#1877f2',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none'
-                }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                </a>
-              )}
-              {footerYoutube && (
-                <a href={footerYoutube} target="_blank" rel="noopener noreferrer" style={{
-                  width: '26px', height: '26px', borderRadius: '50%', background: '#ff0000',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none'
-                }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                </a>
-              )}
-              {footerLinkedin && (
-                <a href={footerLinkedin} target="_blank" rel="noopener noreferrer" style={{
-                  width: '26px', height: '26px', borderRadius: '50%', background: '#0a66c2',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none'
-                }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                </a>
-              )}
-              {customSocialLinks.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    width: '26px', height: '26px', borderRadius: '50%',
-                    background: '#e5e7eb', overflow: 'hidden', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    textDecoration: 'none'
-                  }}
-                >
-                  <img
-                    src={link.iconUrl || getFaviconUrl(link.url)}
-                    alt=""
-                    style={{ width: '16px', height: '16px', objectFit: 'contain' }}
-                    onError={(e) => {
-                      e.currentTarget.replaceWith((() => {
-                        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                        svg.setAttribute('width', '12'); svg.setAttribute('height', '12');
-                        svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', '#6b7280');
-                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        path.setAttribute('d', 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z');
-                        svg.appendChild(path); return svg;
-                      })());
-                    }}
-                  />
-                </a>
-              ))}
-            </div>
-          </div>
-          <div style={{
-            padding: '6px',
-            textAlign: 'center',
-            fontSize: '10px',
-            color: '#9ca3af',
-            borderTop: '1px solid #e5e7eb',
-            flexShrink: 0
-          }}>
-            Powered by <a href="https://mypowerly.com" target="_blank" rel="noopener noreferrer" style={{ color: '#2b5a7d', textDecoration: 'none', fontWeight: 600 }}>MyPowerly</a>
+            <a href={platformHref} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center border-t border-gray-100 px-4 py-1.5 text-[10px] font-medium text-gray-500 transition-colors hover:text-gray-700">
+              Powered by MyPowerly
+            </a>
           </div>
         </div>
       )}
