@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Button from './components/Button';
 import Input from './components/Input';
 import W9QuickRequest from './components/W9QuickRequest';
+import { readPublicTaxChoices, taxSelectionPayload, deliveryConfirmed, publicMessage, selectionUnavailable } from './lib/publicTaxForms';
 import { Notification, toast } from './components/Toast';
 
 const DEFAULT_PLATFORM_LOGO = '/parrot.svg';
+class PublicWidgetError extends Error {}
+const API_BASE_URLS = ['https://mypowerly.com/v1', 'https://esign-admin.signmary.com'];
+const notifyResize = (width, height) => window.parent.postMessage({ type: 'WIDGET_RESIZE', width, height }, '*');
 
 const getExternalUrl = (url) => {
   const trimmedUrl = url?.trim();
@@ -53,19 +57,32 @@ const W9Widget = () => {
   const [w9ChaserEnabled, setW9ChaserEnabled] = useState(false);
   const [selectedW9Chaser, setSelectedW9Chaser] = useState(false);
   const [w9SentTo, setW9SentTo] = useState('');
-  const [vendorTypes, setVendorTypes] = useState([{ value: 'vendor', label: 'Vendor' }]);
+  const [formDefinitions, setFormDefinitions] = useState([]);
+  const [formDefinitionId, setFormDefinitionId] = useState('');
+  const [sentFormCode, setSentFormCode] = useState('');
+  const [sentMessage, setSentMessage] = useState('');
+  const [taxError, setTaxError] = useState('');
+  const [choicesNotice, setChoicesNotice] = useState('');
+  const [refreshingChoices, setRefreshingChoices] = useState(false);
+  const [vendorTypes, setVendorTypes] = useState([]);
   const [compliancePackets, setCompliancePackets] = useState([]);
-  const [vendorType, setVendorType] = useState('vendor');
+  const [vendorType, setVendorType] = useState('');
+  const packetChosenByVisitor = useRef(false);
+  const openRef = useRef(false);
   const [compliancePacketId, setCompliancePacketId] = useState('');
 
   const resetW9Options = () => {
-    setVendorType(vendorTypes.some(type => type.value === 'vendor') ? 'vendor' : vendorTypes[0]?.value || 'vendor');
+    setFormDefinitionId(formDefinitions[0]?.key || '');
+    setVendorType(vendorTypes[0]?.value || '');
     setCompliancePacketId('');
+    packetChosenByVisitor.current = false;
+    setTaxError('');
+    setChoicesNotice('');
   };
 
   const selectVendorType = (value) => {
     setVendorType(value);
-    setCompliancePacketId(compliancePackets.find(packet => packet.vendorType === value)?.id || '');
+    if (!packetChosenByVisitor.current) setCompliancePacketId(compliancePackets.find(packet => packet.vendorType === value)?.id || '');
   };
   const submittingRef = useRef(false);
   const [availableServices, setAvailableServices] = useState({
@@ -135,14 +152,50 @@ const W9Widget = () => {
     ...(availableServices.serviceRequest ? [{ value: 'service-request', label: 'Service Request' }] : []),
     ...(availableServices.aiChatbot ? [{ value: 'ai-chatbot', label: 'AI Chatbot' }] : []),
     ...(availableServices.liveChat ? [{ value: 'live-chat', label: 'Live Chat' }] : []),
-    ...(w9ChaserEnabled ? [{ value: 'w9-request', label: 'W-9 Request' }] : [])
+    ...(w9ChaserEnabled ? [{ value: 'w9-request', label: 'Tax Form Request' }] : [])
   ];
 
   const urlParams = new URLSearchParams(window.location.search);
   const widgetId = urlParams.get('id');
   const devMode = urlParams.get('dev') === 'true';
   const devDomain = urlParams.get('devDomain') || 'https://test.com';
-  const apiBaseUrls = ['https://mypowerly.com/v1', 'https://esign-admin.signmary.com'];
+  useEffect(() => { openRef.current = isOpen; }, [isOpen]);
+
+  const applyWidgetSettings = useCallback((data, domain, requireSelection = false) => {
+    setValidationError(null);
+    setSiteName(data.site_name || new URL(domain).hostname);
+    const settings = data.widget_settings;
+    const choices = readPublicTaxChoices(settings);
+    setW9ChaserEnabled(choices.enabled);
+    setFormDefinitions(choices.forms);
+    setFormDefinitionId(requireSelection ? '' : choices.forms[0]?.key || '');
+    setVendorTypes(choices.vendors);
+    setVendorType(requireSelection ? '' : choices.vendors[0]?.value || '');
+    setCompliancePackets(choices.packets);
+    setCompliancePacketId('');
+    packetChosenByVisitor.current = false;
+    setAvailableServices({
+      serviceRequest: settings.service_request_enabled,
+      aiChatbot: settings.ai_chatbot_enabled,
+      liveChat: settings.live_chat_enabled
+    });
+    setAvailableForms(Array.isArray(settings.enabled_forms_details) ? settings.enabled_forms_details : []);
+    setChatWidgetUrl(settings.live_chat_url || null);
+    setAdminLogoUrl(settings.footer_logo || settings.admin_logo_url || '');
+    setFooterLogoUrl(settings.footer_logo_url || settings.logo_link || settings.platform_url || settings.admin_platform_url || '');
+    setAgencyLogo(settings.agency_logo || '');
+    setAgencyName(settings.agency_name || '');
+    setAgencySupportUrl(settings.agency_support_url || '');
+    const configuredLinks = Array.isArray(settings.custom_social_links) ? settings.custom_social_links
+      .map(link => ({ ...link, url: link?.url || link?.href || link?.link || link?.social_url || '' })).filter(link => link.url) : [];
+    const legacyLinks = [
+      { url: settings.footer_instagram, label: 'Instagram' }, { url: settings.footer_tiktok, label: 'TikTok' },
+      { url: settings.footer_twitter || settings.footer_x, label: 'X' }, { url: settings.footer_facebook, label: 'Facebook' },
+      { url: settings.footer_youtube, label: 'YouTube' }, { url: settings.footer_linkedin, label: 'LinkedIn' }
+    ].filter(link => link.url);
+    setCustomSocialLinks([...configuredLinks, ...legacyLinks]);
+    setUserProfile(settings.user_profile || null);
+  }, []);
 
   useEffect(() => { 
     const validateWidget = async () => {
@@ -162,7 +215,7 @@ const W9Widget = () => {
         if (isLocalhost) {
           if (!devMode) {
             setIsDevelopmentMode(true);
-            setApiBaseUrl(apiBaseUrls[0]);
+            setApiBaseUrl(API_BASE_URLS[0]);
             setValidationError(null);
             setIsValidating(false);
             if (window.parent) {
@@ -178,7 +231,7 @@ const W9Widget = () => {
 
         let lastUnregisteredResponse = null;
 
-        for (const baseUrl of apiBaseUrls) {
+        for (const baseUrl of API_BASE_URLS) {
           const validationUrl = `${baseUrl}${validationPath}`;
           const response = await fetch(validationUrl, {
             method: 'POST',
@@ -194,74 +247,12 @@ const W9Widget = () => {
           const data = await response.json();
           
           if (!response.ok) {
-            throw new Error(data.details || data.message || `HTTP ${response.status}: ${response.statusText}`);
+            throw new PublicWidgetError(publicMessage(data, 'Unable to validate this widget. Please try again.'));
           }
           
-          if (data.registered && data.widget_settings) {
-            setValidationError(null);
-            setSiteName(data.site_name || new URL(domain).hostname);
+          if (data.success !== false && data.registered && data.widget_settings) {
             setApiBaseUrl(baseUrl);
-            
-            const settings = data.widget_settings;
-            console.log('Widget settings from API:', settings);
-            setAvailableServices({
-              serviceRequest: settings.service_request_enabled,
-              aiChatbot: settings.ai_chatbot_enabled,
-              liveChat: settings.live_chat_enabled
-            });
-            setW9ChaserEnabled(settings.w9_1099_chaser_enabled ?? false);
-            // Public, workspace-scoped metadata only. Never fetch private admin
-            // workflows using a website visitor's credentials.
-            const publicTypes = Array.isArray(settings.vendor_types) ? settings.vendor_types : [];
-            const types = publicTypes
-              .filter(type => typeof type?.slug === 'string' && type.slug && typeof type.name === 'string' && type.name)
-              .map(type => ({ value: type.slug, label: type.name }));
-            const options = types.length ? Array.from(new Map(types.map(type => [type.value, type])).values()) : [{ value: 'vendor', label: 'Vendor' }];
-            setVendorTypes(options);
-            setVendorType(options.some(type => type.value === 'vendor') ? 'vendor' : options[0].value);
-            const publicPackets = Array.isArray(settings.compliance_packets) ? settings.compliance_packets : [];
-            setCompliancePackets(Array.from(new Map(publicPackets
-              .filter(packet => packet?.show_in_widget === true && (typeof packet.id === 'string' || typeof packet.id === 'number') && String(packet.id) && typeof packet.name === 'string' && packet.name)
-              .map(packet => [String(packet.id), { id: String(packet.id), name: packet.name, vendorType: packet.vendor_type || '' }])).values()));
-            setCompliancePacketId('');
-            
-            if (settings.enabled_forms_details) {
-              setAvailableForms(settings.enabled_forms_details);
-            }
-            
-            if (settings.live_chat_url) {
-              setChatWidgetUrl(settings.live_chat_url);
-            }
-
-            setAdminLogoUrl(settings.footer_logo || settings.admin_logo_url || '');
-            setFooterLogoUrl(
-              settings.footer_logo_url
-              || settings.logo_link
-              || settings.platform_url
-              || settings.admin_platform_url
-              || ''
-            );
-            setAgencyLogo(settings.agency_logo || '');
-            setAgencyName(settings.agency_name || '');
-            setAgencySupportUrl(settings.agency_support_url || '');
-            const configuredSocialLinks = Array.isArray(settings.custom_social_links)
-              ? settings.custom_social_links
-                .map((link) => ({
-                  ...link,
-                  url: link?.url || link?.href || link?.link || link?.social_url || ''
-                }))
-                .filter((link) => link.url)
-              : [];
-            const legacySocialLinks = [
-              { url: settings.footer_instagram, label: 'Instagram' },
-              { url: settings.footer_tiktok, label: 'TikTok' },
-              { url: settings.footer_twitter || settings.footer_x, label: 'X' },
-              { url: settings.footer_facebook, label: 'Facebook' },
-              { url: settings.footer_youtube, label: 'YouTube' },
-              { url: settings.footer_linkedin, label: 'LinkedIn' }
-            ].filter((link) => link.url);
-            setCustomSocialLinks([...configuredSocialLinks, ...legacySocialLinks]);
-            setUserProfile(settings.user_profile || null);
+            applyWidgetSettings(data, domain);
 
             lastUnregisteredResponse = null;
             break;
@@ -284,10 +275,10 @@ const W9Widget = () => {
           setValidationError(lastUnregisteredResponse.message || 'Domain not registered in MyPowerly Widget settings');
         }
       } catch (error) {
-        setValidationError(error.message || 'Failed to validate widget');
+        setValidationError(error instanceof PublicWidgetError ? error.message : 'Unable to validate this widget. Please try again.');
       } finally {
         setIsValidating(false);
-        if (!isOpen) {
+        if (!openRef.current) {
           notifyResize(80, 80);
         }
         if (window.parent) {
@@ -297,7 +288,7 @@ const W9Widget = () => {
     };
 
     validateWidget();
-  }, [widgetId]);
+  }, [widgetId, devMode, devDomain, applyWidgetSettings]);
 
   useEffect(() => {
     const handleClickOutside = () => setServiceDropdownOpen(false);
@@ -339,94 +330,114 @@ const W9Widget = () => {
     document.head.appendChild(style);
   }, []);
 
+  const siteOrigin = () => {
+    let currentUrl = document.referrer || window.location.href;
+    const hostname = new URL(currentUrl).hostname;
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && devMode) currentUrl = devDomain;
+    return new URL(currentUrl).origin;
+  };
+
+  const refreshPublicChoices = async () => {
+    if (!apiBaseUrl || refreshingChoices) return;
+    setRefreshingChoices(true);
+    setFormDefinitionId('');
+    setFormDefinitions([]);
+    setCompliancePacketId('');
+    setCompliancePackets([]);
+    setVendorType('');
+    setVendorTypes([]);
+    setChoicesNotice('Refreshing available forms and packets…');
+    try {
+      const domain = siteOrigin();
+      const response = await fetch(`${apiBaseUrl}/blogs/api/v2/widget-settings/validate-frontend-url/`, {
+        method: 'POST', credentials: 'omit',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ frontend_url: domain, workspace_id: widgetId })
+      });
+      const data = await response.json();
+      if (!response.ok || data.success === false || !data.registered || !data.widget_settings) {
+        throw new PublicWidgetError(publicMessage(data, 'Unable to refresh available choices. Please try again.'));
+      }
+      applyWidgetSettings(data, domain, true);
+      setChoicesNotice('Choices refreshed. Please select your tax form and optional packet again.');
+    } catch (error) {
+      setChoicesNotice('');
+      setTaxError(error instanceof PublicWidgetError ? error.message : 'Unable to refresh available choices. Please try again.');
+    } finally {
+      setRefreshingChoices(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (submittingRef.current) return;
+    if (submittingRef.current || refreshingChoices) return;
+    setTaxError('');
     if (!name.trim() || !email.trim() || (!selectedW9Chaser && !phone.trim()) || (selectedForms.length === 0 && !selectedW9Chaser)) {
       toast.push(<Notification type="danger">Please fill all required fields</Notification>);
       return;
     }
-
     if (!widgetId || !apiBaseUrl || (selectedW9Chaser && !w9ChaserEnabled)) {
+      setTaxError('Tax form requests are unavailable for this website.');
       toast.push(<Notification type="danger">Invalid widget configuration</Notification>);
       return;
     }
-
-    if (selectedW9Chaser && (!vendorTypes.some(type => type.value === vendorType) ||
-      (compliancePacketId && !compliancePackets.some(packet => packet.id === compliancePacketId)))) {
-      toast.push(<Notification type="danger">Please select an available vendor type and compliance packet.</Notification>);
-      return;
+    let taxSelection = {};
+    if (selectedW9Chaser) {
+      try {
+        taxSelection = taxSelectionPayload({ forms: formDefinitions, vendors: vendorTypes, packets: compliancePackets }, formDefinitionId, vendorType, compliancePacketId);
+      } catch (error) {
+        setTaxError(error.message);
+        return;
+      }
     }
-
     submittingRef.current = true;
     setLoading(true);
-
     try {
-      let currentUrl = document.referrer || window.location.href;
-      const isLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
-      if (isLocalhost && devMode) {
-        currentUrl = devDomain;
-      }
-      const domain = new URL(currentUrl).origin;
-      
       const payload = {
-        frontend_url: domain,
-        workspace_id: widgetId,
+        frontend_url: siteOrigin(), workspace_id: widgetId,
         form_ids: selectedW9Chaser ? [] : selectedForms.map(id => parseInt(id)),
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        reference_id: referenceId.trim(),
-        note,
-        request_w9: selectedW9Chaser,
-        ...(selectedW9Chaser ? { vendor_type: vendorType } : {}),
-        ...(selectedW9Chaser && compliancePacketId ? { compliance_packet_id: compliancePacketId } : {})
+        name: name.trim(), email: email.trim(), phone: phone.trim(),
+        reference_id: referenceId.trim(), note, ...taxSelection
       };
-
-      const submitUrl = `${apiBaseUrl || apiBaseUrls[0]}/api/widgets/submit-form/`;
-
-      const response = await fetch(submitUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(`${apiBaseUrl}/api/widgets/submit-form/`, {
+        method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload)
       });
-
       const data = await response.json();
-
-      if (response.ok && data.success && data.email_sent !== false && data.data?.email_sent !== false) {
-        toast.push(<Notification type="success">{data.message || 'Request submitted! Forms will be sent to your email.'}</Notification>);
-        setName('');
-        setEmail('');
-        setPhone('');
-        setReferenceId('');
-        setNote('');
-        setSelectedForms([]);
+      if (response.ok && deliveryConfirmed(data)) {
+        const message = publicMessage(data, 'Your request was sent. Check your email.');
+        toast.push(<Notification type="success">{message}</Notification>);
         if (selectedW9Chaser) {
+          setSentFormCode(formDefinitions.find(form => form.key === formDefinitionId)?.code || 'tax form');
+          setSentMessage(message);
           setW9SentTo(email.trim());
           setTimeout(() => contentRef.current?.scrollTo({ top: 0 }), 0);
         } else {
           setIsOpen(false);
           notifyResize(80, 80);
         }
+        setName(''); setEmail(''); setPhone(''); setReferenceId(''); setNote(''); setSelectedForms([]);
       } else {
-        const errorMsg = [data.message, data.error, data.details].find(value => typeof value === 'string') || 'Failed to submit form. Please try again.';
-        toast.push(<Notification type="danger">{errorMsg}</Notification>);
+        const message = data.success === true && response.ok
+          ? 'Your request was accepted, but email delivery has not been confirmed. Please check your inbox before sending again.'
+          : publicMessage(data, 'Unable to send your request. Please try again.');
+        setTaxError(message);
+        toast.push(<Notification type="danger">{message}</Notification>);
+        if (selectedW9Chaser && selectionUnavailable(data)) {
+          await refreshPublicChoices();
+          setTimeout(() => contentRef.current?.scrollTo({ top: 0 }), 0);
+        }
       }
     } catch {
-      toast.push(<Notification type="danger">Failed to submit form. Please try again.</Notification>);
+      const message = 'Unable to send your request. Please try again.';
+      setTaxError(message);
+      toast.push(<Notification type="danger">{message}</Notification>);
     } finally {
       submittingRef.current = false;
       setLoading(false);
     }
   };
 
-  const notifyResize = (width, height) => {
-    if (window.parent) {
-      window.parent.postMessage({ type: 'WIDGET_RESIZE', width, height }, '*');
-    }
-  };
-  // notifyResize(80, 80);
   const handleOpen = () => {
     setIsOpen(true);
     setShowServiceForm(false);
@@ -1063,7 +1074,7 @@ const W9Widget = () => {
                             outline: 'none'
                           }}
                         >
-                          W9 & 1099 Chaser
+                          Tax Form Request
                         </button>
                       )}
                     </div>
@@ -1098,7 +1109,11 @@ const W9Widget = () => {
                 name={name} setName={setName} email={email} setEmail={setEmail}
                 phone={phone} setPhone={setPhone} referenceId={referenceId} setReferenceId={setReferenceId}
                 vendorTypes={vendorTypes} vendorType={vendorType} onVendorTypeChange={selectVendorType}
-                compliancePackets={compliancePackets} compliancePacketId={compliancePacketId} onCompliancePacketChange={setCompliancePacketId}
+                compliancePackets={compliancePackets} compliancePacketId={compliancePacketId}
+                onCompliancePacketChange={(value) => { packetChosenByVisitor.current = true; setCompliancePacketId(value); }}
+                formDefinitions={formDefinitions} formDefinitionId={formDefinitionId} onFormDefinitionChange={(value) => { setFormDefinitionId(value); setTaxError(''); setChoicesNotice(''); }}
+                sentFormCode={sentFormCode} sentMessage={sentMessage} requestError={taxError} choicesNotice={choicesNotice}
+                refreshing={refreshingChoices} onRefresh={refreshPublicChoices} enabled={w9ChaserEnabled}
                 loading={loading} onSubmit={handleSubmit} sentTo={w9SentTo} onReset={() => { setW9SentTo(''); resetW9Options(); }}
               />
             ) : (

@@ -40,58 +40,22 @@ Widget behavior is controlled via MyPowerly admin panel:
 
 - `npm run build` - Creates production build
 - `npm run preview` - Preview production build
-## Public W-9 quick requests
 
-Enable **W9 & 1099 Chaser** for a registered domain in `/widget/mypowerly`.
-Visitors can then select **W-9 Request** from the parrot widget dropdown,
-continue to Quick Request, and enter their own name and email. Account/reference
-number and phone are optional. The existing W-9 choice under Service Request
-also opens this screen.
+## Public tax form requests
 
-Requests use the validated backend's existing `POST /api/widgets/submit-form/`
-endpoint with `request_w9: true`, `form_ids: []`, and the existing `name`,
-`email`, `phone`, `reference_id`, `note`, `frontend_url`, and `workspace_id` fields.
-The account number is sent as `reference_id`. The backend remains responsible
-for domain/workspace authorization, W-9 creation, and email delivery. The widget
-does not call the authenticated admin request API.
+Enable W9 & 1099 Chaser for a registered site. The **Tax Form Request** menu
+opens a dynamic form selector populated by the public validation response's
+`form_definitions`, with optional `vendor_types` and `compliance_packets`.
+New submissions send `form_definition_id` and its `tax_year`, without the legacy
+`request_w9` flag. Empty definition lists disable submission.
 
-Successful responses show an email confirmation within the widget; failures
-retain the visitor's details for retry. Deploy the widget build and the admin
-settings change together. Verify email delivery against the configured backend
-before releasing; browser checks with mocked responses do not send real email.
+Public packet summaries do not need a `show_in_widget` field: the backend
+returns only permitted choices and enforces workflow publication itself.
 
-### Vendor type and compliance packet selectors
+Stale selections refresh settings and require explicit reselection while
+preserving visitor details. A sent confirmation requires `email_sent: true`.
+Existing service forms continue using `form_ids` and their required fields.
 
-The Quick Request screen reads `widget_settings.vendor_types` and
-`widget_settings.compliance_packets` from the domain validation response:
-
-```json
-{
-  "vendor_types": [{ "slug": "vendor", "name": "Vendor" }],
-  "compliance_packets": [{ "id": "packet-id", "name": "Vendor onboarding", "vendor_type": "vendor", "show_in_widget": true }]
-}
-```
-
-These are the frontend integration contract for a pending backend extension.
-The live public validation response did not expose these lists when checked;
-the existing admin list endpoints require authentication. Until the public API
-supplies choices, the widget defaults to Vendor and shows an empty packet state.
-It does not fetch private workflows or invent packet choices.
-
-W-9 submissions include `vendor_type` and, when selected, `compliance_packet_id`.
-The public submit endpoint must validate those values against the registered
-website's workspace and attach the selected workflow server-side. That backend
-support and actual packet attachment have not been verified in this repository.
-Changing vendor type chooses the first matching public packet or clears the
-previous packet. Selecting no packet is allowed.
-
-### Per-workflow widget visibility
-
-The workflow dashboard has a separate **Show in widget** switch. The backend
-must persist `show_in_widget` (boolean, default false) through the existing
-authenticated workflow PATCH API, and include it in list/detail responses.
-Public `compliance_packets` summaries must contain `show_in_widget: true`;
-the widget excludes every entry without that exact flag. The server must also
-filter by that flag, public audience, workflow type, and the registered site's
-workspace, then recheck eligibility when accepting a request. See section G
-of `docs/PUBLIC_W9_WIDGET_BACKEND_GUIDE.md` for the exact contract.
+See [the current frontend contract](docs/PUBLIC_WIDGET_FRONTEND_CONTRACT.md)
+for payloads, response handling, and test coverage. Run `npm test` for the
+public tax selection/response contract tests.
