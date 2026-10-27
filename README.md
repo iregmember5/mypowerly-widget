@@ -50,7 +50,7 @@ New submissions send `form_definition_id` and its `tax_year`, without the legacy
 `request_w9` flag. Empty definition lists disable submission.
 
 Public packet summaries do not need a `show_in_widget` field: the backend
-returns only permitted choices and enforces workflow publication itself.
+returns the forms and packets selected in this domain’s widget settings.
 
 Stale selections refresh settings and require explicit reselection while
 preserving visitor details. A sent confirmation requires `email_sent: true`.
@@ -59,3 +59,8 @@ Existing service forms continue using `form_ids` and their required fields.
 See [the current frontend contract](docs/PUBLIC_WIDGET_FRONTEND_CONTRACT.md)
 for payloads, response handling, and test coverage. Run `npm test` for the
 public tax selection/response contract tests.
+
+Owners choose the offered forms and compliance packets at
+`/widget/mypowerly` → domain Settings. The workflow-card publication switch is
+retired. Vendor types are the full public workspace catalog.
+See [the per-domain backend handoff](docs/DOMAIN_WIDGET_BACKEND_HANDOFF.md).

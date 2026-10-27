@@ -26,13 +26,14 @@ export default function W9QuickRequest({ name, setName, email, setEmail, phone, 
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#475569' }}>Send yourself a tax form request. Enter your details below and complete your form using the link in your email.</p>
       </div>
       <div style={{ ...panelStyle, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {vendorTypes.length > 0 && <div>
+        <div>
           <label htmlFor="quick-w9-vendor-type" style={optionLabelStyle}>VENDOR TYPE <span title="Choose the type of vendor completing this request." aria-label="Choose the type of vendor completing this request.">ⓘ</span></label>
-          <select id="quick-w9-vendor-type" value={vendorType} onChange={event => onVendorTypeChange(event.target.value)} disabled={busy} style={selectStyle}>
-            <option value="">Select vendor type (optional)...</option>
+          <select id="quick-w9-vendor-type" value={vendorType} onChange={event => onVendorTypeChange(event.target.value)} disabled={busy || vendorTypes.length === 0} style={selectStyle}>
+            <option value="">{vendorTypes.length ? "Select vendor type (optional)..." : "No vendor types available"}</option>
             {vendorTypes.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
           </select>
-        </div>}
+          {!vendorTypes.length && <p role="status" style={{ margin: '6px 0 0', color: '#64748b', fontSize: 12 }}>No vendor types are currently available. Refresh the available choices or contact this website.</p>}
+        </div>
         <div>
           <label htmlFor="quick-w9-compliance-packet" style={optionLabelStyle}>COMPLIANCE PACKET <span title="Optionally include a compliance packet provided by this website." aria-label="Optionally include a compliance packet provided by this website.">ⓘ</span></label>
           <select id="quick-w9-compliance-packet" value={compliancePacketId} onChange={event => onCompliancePacketChange(event.target.value)} disabled={busy || compliancePackets.length === 0} aria-describedby={compliancePackets.length === 0 ? 'quick-w9-no-packets' : undefined} style={selectStyle}>

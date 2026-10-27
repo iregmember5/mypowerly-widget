@@ -41,14 +41,14 @@ definition. Changing it changes both submitted definition ID and year.
 Malformed definitions without an ID, code, or numeric year are excluded.
 
 An empty definition list disables tax submission. Disabling the tax feature
-hides its menu entry and ignores tax choice lists. An empty vendor list hides
-the optional selector and omits `vendor_type`; no Vendor option is invented.
+hides its menu entry and ignores tax choice lists. The vendor selector remains visible when the list is empty, with an unavailable
+message. It omits `vendor_type` when none is selected; no Vendor option is invented.
 An empty packet list disables the optional packet selector.
 
 The backend's packet list is authoritative. It does **not** need to include
-`show_in_widget` in the public projection. The workflow dashboard's publication
-flag is persisted/enforced by the backend; the public frontend does not repeat
-that filter on DTOs which omit the flag.
+`show_in_widget` in the public projection. The domain’s saved widget-settings allowlists control form and packet
+discovery. The old workflow-dashboard publication switch has been removed;
+the public frontend does not require a global workflow flag.
 
 Vendor changes may suggest a matching packet before the visitor chooses one.
 After a visitor manually chooses another packet or no packet, subsequent vendor
@@ -131,3 +131,12 @@ No real email was sent during browser testing. The live domain validation check
 for midamericataxplanners.com returned empty `form_definitions`, `vendor_types`,
 and `compliance_packets`; production site configuration must supply choices
 before tax requests are available there.
+
+## Domain configuration (current design)
+
+Owners configure multiple tax forms and compliance packets per domain at
+`/widget/mypowerly`. Admin settings persist `enabled_form_definition_ids` and
+`enabled_compliance_packet_ids`, separately from existing service `enabled_forms`.
+Public validation returns only the saved permitted forms/packets and the full
+workspace vendor catalog, unfiltered by those selections. See
+[the backend handoff](DOMAIN_WIDGET_BACKEND_HANDOFF.md).
