@@ -53,7 +53,7 @@ export default function W9QuickRequest({ name, setName, email, setEmail, phone, 
         {(!enabled || formDefinitions.length === 0) && <p role="status" style={{ margin: '8px 0 0', fontSize: 12, color: '#64748b' }}>{refreshing ? 'Loading available tax forms…' : 'No tax forms are currently available for this website.'}</p>}
         <button type="button" disabled={busy} onClick={onRefresh} style={{ marginTop: 10, border: 0, background: 'transparent', color: '#625bbb', cursor: busy ? 'wait' : 'pointer', fontSize: 12 }}>Refresh available forms and packets</button>
       </div>
-      <div style={{ padding: 12, borderRadius: 6, background: '#7c78c5', color: 'white', textAlign: 'center', fontSize: 14, fontWeight: 600 }}>✓ Quick Request</div>
+      <h3 style={{ margin: '4px 0 0', paddingTop: 16, borderTop: '1px solid #e2e8f0', color: '#334155', fontSize: 15, fontWeight: 600 }}>Quick Request</h3>
       <p style={{ margin: 0, padding: 10, border: '1px solid #bfdbfe', borderRadius: 5, background: '#eff6ff', color: '#334155', fontSize: 12, lineHeight: 1.6 }}>Your name and email address are required to send a tax form request.</p>
       {requestError && <p role="alert" style={{ margin: 0, color: '#b91c1c', fontSize: 13, lineHeight: 1.6 }}>{requestError}</p>}
       {choicesNotice && <p role="status" style={{ margin: 0, color: '#334155', fontSize: 13, lineHeight: 1.6 }}>{choicesNotice}</p>}
