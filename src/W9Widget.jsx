@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Button from './components/Button';
 import Input from './components/Input';
+import W9QuickRequest from './components/W9QuickRequest';
 import { Notification, toast } from './components/Toast';
 
 const DEFAULT_PLATFORM_LOGO = '/parrot.svg';
@@ -51,6 +52,8 @@ const W9Widget = () => {
   const [availableForms, setAvailableForms] = useState([]);
   const [w9ChaserEnabled, setW9ChaserEnabled] = useState(false);
   const [selectedW9Chaser, setSelectedW9Chaser] = useState(false);
+  const [w9SentTo, setW9SentTo] = useState('');
+  const submittingRef = useRef(false);
   const [availableServices, setAvailableServices] = useState({
     serviceRequest: true,
     aiChatbot: true,
@@ -71,6 +74,37 @@ const W9Widget = () => {
   const [customSocialLinks, setCustomSocialLinks] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
   const contentRef = useRef(null);
+  const launcherDrag = useRef(null);
+  const suppressLauncherClick = useRef(false);
+
+  const postDrag = (type, event, start) => {
+    window.parent.postMessage({ type, deltaX: event.screenX - start.x, deltaY: event.screenY - start.y }, '*');
+  };
+
+  const startLauncherDrag = (event) => {
+    if (!event.isPrimary || event.button !== 0) return;
+    suppressLauncherClick.current = false;
+    launcherDrag.current = { id: event.pointerId, x: event.screenX, y: event.screenY, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.style.cursor = 'grabbing';
+    postDrag('WIDGET_DRAG_START', event, launcherDrag.current);
+  };
+
+  const moveLauncherDrag = (event) => {
+    const start = launcherDrag.current;
+    if (!start || start.id !== event.pointerId) return;
+    if (Math.hypot(event.screenX - start.x, event.screenY - start.y) > 5) start.moved = true;
+    if (start.moved) postDrag('WIDGET_DRAG_MOVE', event, start);
+  };
+
+  const endLauncherDrag = (event) => {
+    const start = launcherDrag.current;
+    if (!start || start.id !== event.pointerId) return;
+    suppressLauncherClick.current = start.moved;
+    launcherDrag.current = null;
+    event.currentTarget.style.cursor = 'grab';
+    postDrag('WIDGET_DRAG_END', event, start);
+  };
 
   useEffect(() => {
     const showHideExclamation = () => {
@@ -86,7 +120,8 @@ const W9Widget = () => {
     { value: '', label: 'Choose a service...' },
     ...(availableServices.serviceRequest ? [{ value: 'service-request', label: 'Service Request' }] : []),
     ...(availableServices.aiChatbot ? [{ value: 'ai-chatbot', label: 'AI Chatbot' }] : []),
-    ...(availableServices.liveChat ? [{ value: 'live-chat', label: 'Live Chat' }] : [])
+    ...(availableServices.liveChat ? [{ value: 'live-chat', label: 'Live Chat' }] : []),
+    ...(w9ChaserEnabled ? [{ value: 'w9-request', label: 'W-9 Request' }] : [])
   ];
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -279,16 +314,18 @@ const W9Widget = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!name || !email || !phone || (selectedForms.length === 0 && !selectedW9Chaser)) {
+    if (submittingRef.current) return;
+    if (!name.trim() || !email.trim() || (!selectedW9Chaser && !phone.trim()) || (selectedForms.length === 0 && !selectedW9Chaser)) {
       toast.push(<Notification type="danger">Please fill all required fields</Notification>);
       return;
     }
 
-    if (!widgetId) {
+    if (!widgetId || !apiBaseUrl || (selectedW9Chaser && !w9ChaserEnabled)) {
       toast.push(<Notification type="danger">Invalid widget configuration</Notification>);
       return;
     }
 
+    submittingRef.current = true;
     setLoading(true);
 
     try {
@@ -302,11 +339,11 @@ const W9Widget = () => {
       const payload = {
         frontend_url: domain,
         workspace_id: widgetId,
-        form_ids: selectedForms.map(id => parseInt(id)),
-        name,
-        email,
-        phone,
-        reference_id: referenceId,
+        form_ids: selectedW9Chaser ? [] : selectedForms.map(id => parseInt(id)),
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        reference_id: referenceId.trim(),
         note,
         request_w9: selectedW9Chaser
       };
@@ -321,7 +358,7 @@ const W9Widget = () => {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success && data.email_sent !== false && data.data?.email_sent !== false) {
         toast.push(<Notification type="success">{data.message || 'Request submitted! Forms will be sent to your email.'}</Notification>);
         setName('');
         setEmail('');
@@ -329,15 +366,21 @@ const W9Widget = () => {
         setReferenceId('');
         setNote('');
         setSelectedForms([]);
-        setSelectedW9Chaser(false);
-        setIsOpen(false);
+        if (selectedW9Chaser) {
+          setW9SentTo(email.trim());
+          setTimeout(() => contentRef.current?.scrollTo({ top: 0 }), 0);
+        } else {
+          setIsOpen(false);
+          notifyResize(80, 80);
+        }
       } else {
-        const errorMsg = data.message || data.error || data.details || 'Failed to submit form. Please try again.';
+        const errorMsg = [data.message, data.error, data.details].find(value => typeof value === 'string') || 'Failed to submit form. Please try again.';
         toast.push(<Notification type="danger">{errorMsg}</Notification>);
       }
-    } catch (error) {
+    } catch {
       toast.push(<Notification type="danger">Failed to submit form. Please try again.</Notification>);
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
@@ -362,6 +405,7 @@ const W9Widget = () => {
     setNote('');
     setSelectedForms([]);
     setSelectedW9Chaser(false);
+    setW9SentTo('');
     notifyResize(380, 600);
     setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   };
@@ -379,6 +423,7 @@ const W9Widget = () => {
     setNote('');
     setSelectedForms([]);
     setSelectedW9Chaser(false);
+    setW9SentTo('');
     notifyResize(80, 80);
   };
 
@@ -387,7 +432,14 @@ const W9Widget = () => {
       toast.push(<Notification type="danger">Please select a service</Notification>);
       return;
     }
-    if (selectedService === 'service-request') {
+    if (selectedService === 'w9-request') {
+      if (!w9ChaserEnabled) return;
+      setSelectedW9Chaser(true);
+      setSelectedForms([]);
+      setShowServiceForm(true);
+      notifyResize(380, 600);
+      setTimeout(() => contentRef.current?.scrollTo({ top: 0 }), 0);
+    } else if (selectedService === 'service-request') {
       if (selectedForms.length === 0 && !selectedW9Chaser) {
         toast.push(<Notification type="danger">Please select at least one form type</Notification>);
         return;
@@ -415,6 +467,9 @@ const W9Widget = () => {
     setShowAIChatbot(false);
     setShowLiveChat(false);
     setIframeLoading(true);
+    setSelectedW9Chaser(false);
+    setSelectedForms([]);
+    setW9SentTo('');
     setSelectedService('');
     setServiceDropdownOpen(false);
     notifyResize(380, 500);
@@ -443,13 +498,25 @@ const W9Widget = () => {
       pointerEvents: isOpen ? 'auto' : 'none'
     }}>
       <button
-        onClick={handleOpen}
+        aria-label="Open chat — drag to move"
+        title="Click to open, or drag to move"
+        onPointerDown={startLauncherDrag}
+        onPointerMove={moveLauncherDrag}
+        onPointerUp={endLauncherDrag}
+        onPointerCancel={endLauncherDrag}
+        onLostPointerCapture={endLauncherDrag}
+        onClick={(event) => {
+          if (suppressLauncherClick.current && event.detail !== 0) return;
+          handleOpen();
+        }}
         style={{
+          touchAction: 'none',
+          userSelect: 'none',
           width: '70px',
           height: '70px',
           backgroundColor: 'transparent',
           border: 'none',
-          cursor: 'pointer',
+          cursor: 'grab',
           transition: 'transform 0.2s',
           padding: 0,
           display: (isOpen || isValidating) ? 'none' : 'flex',
@@ -489,7 +556,7 @@ const W9Widget = () => {
             }}></div>
           </div>
         )}
-        <img src="/parrot.svg" alt="Chat" style={{ width: '70px', height: '70px', position: 'relative', zIndex: 1 }} />
+        <img draggable={false} src="/parrot.svg" alt="Chat" style={{ width: '70px', height: '70px', position: 'relative', zIndex: 1 }} />
         <style>{`
           @keyframes fadeIn {
             0% { opacity: 0; transform: translateY(5px); }
@@ -500,7 +567,8 @@ const W9Widget = () => {
 
       {isOpen && (
         <div style={{
-          width: '360px',
+          width: 'min(360px, calc(100vw - 24px))',
+          maxHeight: 'calc(100dvh - 24px)',
           height: showServiceForm ? '580px' : showLiveChat ? '592px' : '480px',
           backgroundColor: 'white',
           borderRadius: '16px',
@@ -521,16 +589,18 @@ const W9Widget = () => {
             borderTopRightRadius: '16px',
             flexShrink: 0
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
               {(showServiceForm || showAIChatbot || showLiveChat) && (
                 <button
                   onClick={handleBackButton}
+                  disabled={loading}
                   style={{
                     background: 'rgba(255,255,255,0.2)',
                     border: 'none',
                     color: 'white',
                     fontSize: '18px',
                     cursor: 'pointer',
+                    flexShrink: 0,
                     width: '32px',
                     height: '32px',
                     borderRadius: '50%',
@@ -545,16 +615,18 @@ const W9Widget = () => {
                   ←
                 </button>
               )}
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'white' }}>{siteName}</h3>
+              <h3 title={siteName} style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '18px', fontWeight: 700, color: 'white' }}>{siteName}</h3>
             </div>
             <button
               onClick={handleClose}
+              disabled={loading}
               style={{
                 background: 'rgba(255,255,255,0.2)',
                 border: 'none',
                 color: 'white',
                 fontSize: '20px',
                 cursor: 'pointer',
+                flexShrink: 0,
                 width: '32px',
                 height: '32px',
                 borderRadius: '50%',
@@ -846,6 +918,9 @@ const W9Widget = () => {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedService(option.value);
+                              setSelectedForms([]);
+                              setSelectedW9Chaser(false);
+                              setW9SentTo('');
                               setServiceDropdownOpen(false);
                             }}
                             disabled={!option.value}
@@ -904,6 +979,7 @@ const W9Widget = () => {
                           key={form.id}
                           type="button"
                           onClick={() => {
+                            setSelectedW9Chaser(false);
                             setSelectedForms(prev =>
                               prev.includes(form.id.toString())
                                 ? prev.filter(id => id !== form.id.toString())
@@ -930,7 +1006,10 @@ const W9Widget = () => {
                       {w9ChaserEnabled && (
                         <button
                           type="button"
-                          onClick={() => setSelectedW9Chaser(!selectedW9Chaser)}
+                          onClick={() => {
+                            setSelectedW9Chaser(!selectedW9Chaser);
+                            setSelectedForms([]);
+                          }}
                           style={{
                             padding: '8px 14px',
                             border: selectedW9Chaser ? '2px solid #2b5a7d' : '2px solid #e5e7eb',
@@ -975,6 +1054,12 @@ const W9Widget = () => {
                 </div>
               </>
 
+            ) : selectedW9Chaser ? (
+              <W9QuickRequest
+                name={name} setName={setName} email={email} setEmail={setEmail}
+                phone={phone} setPhone={setPhone} referenceId={referenceId} setReferenceId={setReferenceId}
+                loading={loading} onSubmit={handleSubmit} sentTo={w9SentTo} onReset={() => setW9SentTo('')}
+              />
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{

@@ -40,3 +40,22 @@ Widget behavior is controlled via MyPowerly admin panel:
 
 - `npm run build` - Creates production build
 - `npm run preview` - Preview production build
+## Public W-9 quick requests
+
+Enable **W9 & 1099 Chaser** for a registered domain in `/widget/mypowerly`.
+Visitors can then select **W-9 Request** from the parrot widget dropdown,
+continue to Quick Request, and enter their own name and email. Account/reference
+number and phone are optional. The existing W-9 choice under Service Request
+also opens this screen.
+
+Requests use the validated backend's existing `POST /api/widgets/submit-form/`
+endpoint with `request_w9: true`, `form_ids: []`, and the existing `name`,
+`email`, `phone`, `reference_id`, `note`, `frontend_url`, and `workspace_id` fields.
+The account number is sent as `reference_id`. The backend remains responsible
+for domain/workspace authorization, W-9 creation, and email delivery. The widget
+does not call the authenticated admin request API.
+
+Successful responses show an email confirmation within the widget; failures
+retain the visitor's details for retry. Deploy the widget build and the admin
+settings change together. Verify email delivery against the configured backend
+before releasing; browser checks with mocked responses do not send real email.

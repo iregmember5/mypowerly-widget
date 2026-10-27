@@ -47,7 +47,7 @@
       border: 'none',
       zIndex: '999999',
       background: 'transparent',
-      transition: 'all 0.3s ease',
+      transition: 'opacity 0.3s ease',
       opacity: '0',
       pointerEvents: 'none'
     };
@@ -79,22 +79,47 @@
     iframe.setAttribute('allow', 'clipboard-write');
     
     let widgetReady = false;
+    // Keep the visitor's launcher position when the larger panel opens/closes.
+    const inset = () => window.innerWidth < 768 ? 10 : 20;
+    let position = { right: inset(), bottom: inset() };
+    let dragStart = null;
+    let requestedSize = { width: 80, height: 80 };
+    const widgetOrigin = new URL(widgetUrl).origin;
+
+    function layoutWidget() {
+      const margin = 10;
+      const width = Math.min(requestedSize.width, Math.max(0, window.innerWidth - margin * 2));
+      const height = Math.min(requestedSize.height, Math.max(0, window.innerHeight - margin * 2));
+      iframe.style.width = width + 'px';
+      iframe.style.height = height + 'px';
+      iframe.style.right = Math.min(Math.max(margin, position.right), Math.max(margin, window.innerWidth - width - margin)) + 'px';
+      iframe.style.bottom = Math.min(Math.max(margin, position.bottom), Math.max(margin, window.innerHeight - height - margin)) + 'px';
+    }
 
     window.addEventListener('message', function(event) {
-      if (event.data.type === 'WIDGET_RESIZE') {
+      if (event.source !== iframe.contentWindow || event.origin !== widgetOrigin || !event.data) return;
+      if (event.data.type === 'WIDGET_DRAG_START') {
+        const rect = iframe.getBoundingClientRect();
+        dragStart = { right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.bottom };
+      } else if (event.data.type === 'WIDGET_DRAG_MOVE' && dragStart) {
+        if (!Number.isFinite(event.data.deltaX) || !Number.isFinite(event.data.deltaY)) return;
+        position = {
+          right: Math.max(10, Math.min(window.innerWidth - iframe.offsetWidth - 10, dragStart.right - event.data.deltaX)),
+          bottom: Math.max(10, Math.min(window.innerHeight - iframe.offsetHeight - 10, dragStart.bottom - event.data.deltaY))
+        };
+        layoutWidget();
+      } else if (event.data.type === 'WIDGET_DRAG_END') {
+        dragStart = null;
+      } else if (event.data.type === 'WIDGET_RESIZE') {
         const width = event.data.width;
         const height = event.data.height;
         
         iframe.style.opacity = '1';
         iframe.style.pointerEvents = 'auto';
         
-        if (isMobile) {
-          iframe.style.width = Math.min(width, window.innerWidth - 20) + 'px';
-          iframe.style.height = Math.min(height, window.innerHeight - 20) + 'px';
-        } else {
-          iframe.style.width = width + 'px';
-          iframe.style.height = height + 'px';
-        }
+        if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+        requestedSize = { width, height };
+        layoutWidget();
       } else if (event.data.type === 'WIDGET_READY') {
         widgetReady = true;
         clearTimeout(errorTimeout);
@@ -146,19 +171,10 @@
     window.addEventListener('resize', function() {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function() {
-        const newIsMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-        
-        if (newIsMobile) {
-          iframe.style.maxWidth = 'calc(100vw - 20px)';
-          iframe.style.maxHeight = 'calc(100vh - 20px)';
-          iframe.style.bottom = '10px';
-          iframe.style.right = '10px';
-        } else {
-          iframe.style.maxWidth = 'none';
-          iframe.style.maxHeight = 'none';
-          iframe.style.bottom = '20px';
-          iframe.style.right = '20px';
-        }
+        // Clamp the launcher too so it stays reachable after viewport changes.
+        position.right = Math.max(10, Math.min(position.right, window.innerWidth - 90));
+        position.bottom = Math.max(10, Math.min(position.bottom, window.innerHeight - 90));
+        layoutWidget();
       }, 250);
     });
     
