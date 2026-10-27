@@ -53,6 +53,20 @@ const W9Widget = () => {
   const [w9ChaserEnabled, setW9ChaserEnabled] = useState(false);
   const [selectedW9Chaser, setSelectedW9Chaser] = useState(false);
   const [w9SentTo, setW9SentTo] = useState('');
+  const [vendorTypes, setVendorTypes] = useState([{ value: 'vendor', label: 'Vendor' }]);
+  const [compliancePackets, setCompliancePackets] = useState([]);
+  const [vendorType, setVendorType] = useState('vendor');
+  const [compliancePacketId, setCompliancePacketId] = useState('');
+
+  const resetW9Options = () => {
+    setVendorType(vendorTypes.some(type => type.value === 'vendor') ? 'vendor' : vendorTypes[0]?.value || 'vendor');
+    setCompliancePacketId('');
+  };
+
+  const selectVendorType = (value) => {
+    setVendorType(value);
+    setCompliancePacketId(compliancePackets.find(packet => packet.vendorType === value)?.id || '');
+  };
   const submittingRef = useRef(false);
   const [availableServices, setAvailableServices] = useState({
     serviceRequest: true,
@@ -196,6 +210,20 @@ const W9Widget = () => {
               liveChat: settings.live_chat_enabled
             });
             setW9ChaserEnabled(settings.w9_1099_chaser_enabled ?? false);
+            // Public, workspace-scoped metadata only. Never fetch private admin
+            // workflows using a website visitor's credentials.
+            const publicTypes = Array.isArray(settings.vendor_types) ? settings.vendor_types : [];
+            const types = publicTypes
+              .filter(type => typeof type?.slug === 'string' && type.slug && typeof type.name === 'string' && type.name)
+              .map(type => ({ value: type.slug, label: type.name }));
+            const options = types.length ? Array.from(new Map(types.map(type => [type.value, type])).values()) : [{ value: 'vendor', label: 'Vendor' }];
+            setVendorTypes(options);
+            setVendorType(options.some(type => type.value === 'vendor') ? 'vendor' : options[0].value);
+            const publicPackets = Array.isArray(settings.compliance_packets) ? settings.compliance_packets : [];
+            setCompliancePackets(Array.from(new Map(publicPackets
+              .filter(packet => (typeof packet?.id === 'string' || typeof packet?.id === 'number') && String(packet.id) && typeof packet.name === 'string' && packet.name)
+              .map(packet => [String(packet.id), { id: String(packet.id), name: packet.name, vendorType: packet.vendor_type || '' }])).values()));
+            setCompliancePacketId('');
             
             if (settings.enabled_forms_details) {
               setAvailableForms(settings.enabled_forms_details);
@@ -325,6 +353,12 @@ const W9Widget = () => {
       return;
     }
 
+    if (selectedW9Chaser && (!vendorTypes.some(type => type.value === vendorType) ||
+      (compliancePacketId && !compliancePackets.some(packet => packet.id === compliancePacketId)))) {
+      toast.push(<Notification type="danger">Please select an available vendor type and compliance packet.</Notification>);
+      return;
+    }
+
     submittingRef.current = true;
     setLoading(true);
 
@@ -345,7 +379,9 @@ const W9Widget = () => {
         phone: phone.trim(),
         reference_id: referenceId.trim(),
         note,
-        request_w9: selectedW9Chaser
+        request_w9: selectedW9Chaser,
+        ...(selectedW9Chaser ? { vendor_type: vendorType } : {}),
+        ...(selectedW9Chaser && compliancePacketId ? { compliance_packet_id: compliancePacketId } : {})
       };
 
       const submitUrl = `${apiBaseUrl || apiBaseUrls[0]}/api/widgets/submit-form/`;
@@ -406,6 +442,7 @@ const W9Widget = () => {
     setSelectedForms([]);
     setSelectedW9Chaser(false);
     setW9SentTo('');
+    resetW9Options();
     notifyResize(380, 600);
     setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   };
@@ -424,6 +461,7 @@ const W9Widget = () => {
     setSelectedForms([]);
     setSelectedW9Chaser(false);
     setW9SentTo('');
+    resetW9Options();
     notifyResize(80, 80);
   };
 
@@ -470,6 +508,7 @@ const W9Widget = () => {
     setSelectedW9Chaser(false);
     setSelectedForms([]);
     setW9SentTo('');
+    resetW9Options();
     setSelectedService('');
     setServiceDropdownOpen(false);
     notifyResize(380, 500);
@@ -1058,7 +1097,9 @@ const W9Widget = () => {
               <W9QuickRequest
                 name={name} setName={setName} email={email} setEmail={setEmail}
                 phone={phone} setPhone={setPhone} referenceId={referenceId} setReferenceId={setReferenceId}
-                loading={loading} onSubmit={handleSubmit} sentTo={w9SentTo} onReset={() => setW9SentTo('')}
+                vendorTypes={vendorTypes} vendorType={vendorType} onVendorTypeChange={selectVendorType}
+                compliancePackets={compliancePackets} compliancePacketId={compliancePacketId} onCompliancePacketChange={setCompliancePacketId}
+                loading={loading} onSubmit={handleSubmit} sentTo={w9SentTo} onReset={() => { setW9SentTo(''); resetW9Options(); }}
               />
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

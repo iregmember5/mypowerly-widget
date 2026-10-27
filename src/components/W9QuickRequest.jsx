@@ -2,9 +2,11 @@ import Input from './Input';
 import Button from './Button';
 
 const labelStyle = { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155' };
+const selectStyle = { width: '100%', marginTop: 6, padding: 10, border: '1px solid #d1d5db', borderRadius: 5, color: '#0f172a', background: 'white', fontSize: 13 };
+const optionLabelStyle = { ...labelStyle, fontSize: 11, color: '#716acb' };
 const panelStyle = { padding: 12, border: '1px solid #a5a1e7', borderRadius: 8, background: '#fafaff' };
 
-export default function W9QuickRequest({ name, setName, email, setEmail, phone, setPhone, referenceId, setReferenceId, loading, onSubmit, sentTo, onReset }) {
+export default function W9QuickRequest({ name, setName, email, setEmail, phone, setPhone, referenceId, setReferenceId, loading, onSubmit, sentTo, onReset, vendorTypes, vendorType, onVendorTypeChange, compliancePackets, compliancePacketId, onCompliancePacketChange }) {
   if (sentTo) return (
     <section role="status" style={{ ...panelStyle, borderColor: '#86efac', background: '#f0fdf4' }}>
       <h2 style={{ margin: '0 0 12px', fontSize: 20, color: '#166534' }}>W-9 request submitted</h2>
@@ -18,6 +20,22 @@ export default function W9QuickRequest({ name, setName, email, setEmail, phone, 
       <div>
         <h2 style={{ margin: '0 0 8px', fontSize: 21, color: '#0f172a' }}>Request your W-9</h2>
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#475569' }}>Send yourself a W-9 request. Enter your details below and complete your form using the link in your email.</p>
+      </div>
+      <div style={{ ...panelStyle, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label htmlFor="quick-w9-vendor-type" style={optionLabelStyle}>VENDOR TYPE <span title="Choose the type of vendor completing this request." aria-label="Choose the type of vendor completing this request.">ⓘ</span></label>
+          <select id="quick-w9-vendor-type" value={vendorType} onChange={event => onVendorTypeChange(event.target.value)} disabled={loading} style={selectStyle}>
+            {vendorTypes.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="quick-w9-compliance-packet" style={optionLabelStyle}>COMPLIANCE PACKET <span title="Optionally include a compliance packet provided by this website." aria-label="Optionally include a compliance packet provided by this website.">ⓘ</span></label>
+          <select id="quick-w9-compliance-packet" value={compliancePacketId} onChange={event => onCompliancePacketChange(event.target.value)} disabled={loading || compliancePackets.length === 0} aria-describedby={compliancePackets.length === 0 ? 'quick-w9-no-packets' : undefined} style={selectStyle}>
+            <option value="">Select packet...</option>
+            {compliancePackets.map(packet => <option key={packet.id} value={packet.id}>{packet.name}</option>)}
+          </select>
+          {compliancePackets.length === 0 && <p id="quick-w9-no-packets" style={{ margin: '6px 0 0', color: '#64748b', fontSize: 12 }}>No compliance packets are available for this website.</p>}
+        </div>
       </div>
       <div style={panelStyle}>
         <span style={{ fontSize: 11, fontWeight: 700, color: '#716acb' }}>TIN REQUEST FORM TYPE</span>

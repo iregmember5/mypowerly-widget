@@ -59,3 +59,28 @@ Successful responses show an email confirmation within the widget; failures
 retain the visitor's details for retry. Deploy the widget build and the admin
 settings change together. Verify email delivery against the configured backend
 before releasing; browser checks with mocked responses do not send real email.
+
+### Vendor type and compliance packet selectors
+
+The Quick Request screen reads `widget_settings.vendor_types` and
+`widget_settings.compliance_packets` from the domain validation response:
+
+```json
+{
+  "vendor_types": [{ "slug": "vendor", "name": "Vendor" }],
+  "compliance_packets": [{ "id": "packet-id", "name": "Vendor onboarding", "vendor_type": "vendor" }]
+}
+```
+
+These are the frontend integration contract for a pending backend extension.
+The live public validation response did not expose these lists when checked;
+the existing admin list endpoints require authentication. Until the public API
+supplies choices, the widget defaults to Vendor and shows an empty packet state.
+It does not fetch private workflows or invent packet choices.
+
+W-9 submissions include `vendor_type` and, when selected, `compliance_packet_id`.
+The public submit endpoint must validate those values against the registered
+website's workspace and attach the selected workflow server-side. That backend
+support and actual packet attachment have not been verified in this repository.
+Changing vendor type chooses the first matching public packet or clears the
+previous packet. Selecting no packet is allowed.
