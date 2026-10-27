@@ -68,7 +68,7 @@ The Quick Request screen reads `widget_settings.vendor_types` and
 ```json
 {
   "vendor_types": [{ "slug": "vendor", "name": "Vendor" }],
-  "compliance_packets": [{ "id": "packet-id", "name": "Vendor onboarding", "vendor_type": "vendor" }]
+  "compliance_packets": [{ "id": "packet-id", "name": "Vendor onboarding", "vendor_type": "vendor", "show_in_widget": true }]
 }
 ```
 
@@ -84,3 +84,14 @@ website's workspace and attach the selected workflow server-side. That backend
 support and actual packet attachment have not been verified in this repository.
 Changing vendor type chooses the first matching public packet or clears the
 previous packet. Selecting no packet is allowed.
+
+### Per-workflow widget visibility
+
+The workflow dashboard has a separate **Show in widget** switch. The backend
+must persist `show_in_widget` (boolean, default false) through the existing
+authenticated workflow PATCH API, and include it in list/detail responses.
+Public `compliance_packets` summaries must contain `show_in_widget: true`;
+the widget excludes every entry without that exact flag. The server must also
+filter by that flag, public audience, workflow type, and the registered site's
+workspace, then recheck eligibility when accepting a request. See section G
+of `docs/PUBLIC_W9_WIDGET_BACKEND_GUIDE.md` for the exact contract.

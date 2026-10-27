@@ -221,7 +221,7 @@ const W9Widget = () => {
             setVendorType(options.some(type => type.value === 'vendor') ? 'vendor' : options[0].value);
             const publicPackets = Array.isArray(settings.compliance_packets) ? settings.compliance_packets : [];
             setCompliancePackets(Array.from(new Map(publicPackets
-              .filter(packet => (typeof packet?.id === 'string' || typeof packet?.id === 'number') && String(packet.id) && typeof packet.name === 'string' && packet.name)
+              .filter(packet => packet?.show_in_widget === true && (typeof packet.id === 'string' || typeof packet.id === 'number') && String(packet.id) && typeof packet.name === 'string' && packet.name)
               .map(packet => [String(packet.id), { id: String(packet.id), name: packet.name, vendorType: packet.vendor_type || '' }])).values()));
             setCompliancePacketId('');
             
