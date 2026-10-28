@@ -26,16 +26,16 @@ must be implemented in the backend repository; those sources were not supplied.
 
 | Dropdown | Existing API/source |
 | --- | --- |
-| Tax forms | `listTinRequestFormDefinitions()` in `src/services/api/WP-1099/MetaDataService.ts` |
+| Tax forms | `listPackages()` + `listFormDefinitions({ status: "published" })` in `src/services/api/WP-1099/MetaDataService.ts` |
 | Package discovery | `GET /api/tax-filling/meta-data/packages/` |
-| Published definitions | `GET /api/tax-filling/meta-data/definitions/?package_code=SELECTED_PACKAGE&status=published` |
+| Published definitions | `GET /api/tax-filling/meta-data/definitions/?status=published` |
 | Compliance packets | `GET /api/tax-filling/compliance-workflows/?workflow_type=compliance-packet&workspace_id=WORKSPACE_UUID&page=1&page_size=200` |
 
-The existing metadata helper prefers an active `IRSW` package, then an active
-`IRS-W` package. They are distinct identifiers, not interchangeable spellings.
+Offer published definitions from all active IRS packages: the category identifies IRS,
+or the package code is `IRSW` or `IRS-W`. Load the definitions in one response
+and filter by the eligible package codes.
 The settings editor loads published definitions across the available tax years,
-uses definition IDs, and displays their names, years, and versions. It follows
-pagination where the catalog returns more records.
+uses definition IDs, and displays their names, years, and versions.
 
 Compliance choices use real workspace-owned, non-template `compliance-packet`
 workflows. They are not synthetic stock-template IDs. The editor follows
@@ -51,7 +51,7 @@ Add these writable fields to the existing widget-settings API:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `enabled_form_definition_ids` | Array of integer definition IDs | Tax definitions offered by this domain. |
+| `public_form_definition_ids` | Array of integer definition IDs | Tax definitions offered by this domain. |
 | `enabled_compliance_packet_ids` | Array of workflow ID strings | Compliance packets offered by this domain. |
 
 Defaults: `[]` for both. An empty array means **offer none**, not offer all.
@@ -81,7 +81,7 @@ footer/branding, and existing settings fields):
   "frontend_site_id": 42,
   "w9_1099_chaser_enabled": true,
   "enabled_forms": [55],
-  "enabled_form_definition_ids": [101, 402],
+  "public_form_definition_ids": [101, 402],
   "enabled_compliance_packet_ids": ["packet-uuid-one", "packet-uuid-two"]
 }
 ```
@@ -122,7 +122,7 @@ Representative existing list response:
       "frontend_site": 42,
       "w9_1099_chaser_enabled": true,
       "enabled_forms": [55],
-      "enabled_form_definition_ids": [101, 402],
+      "public_form_definition_ids": [101, 402],
       "enabled_compliance_packet_ids": ["packet-uuid-one", "packet-uuid-two"]
     }
   ]
