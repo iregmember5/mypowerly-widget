@@ -67,7 +67,6 @@ const W9Widget = () => {
   const [vendorTypes, setVendorTypes] = useState([]);
   const [compliancePackets, setCompliancePackets] = useState([]);
   const [vendorType, setVendorType] = useState('');
-  const packetChosenByVisitor = useRef(false);
   const openRef = useRef(false);
   const [compliancePacketId, setCompliancePacketId] = useState('');
 
@@ -75,14 +74,12 @@ const W9Widget = () => {
     setFormDefinitionId(formDefinitions[0]?.key || '');
     setVendorType(vendorTypes[0]?.value || '');
     setCompliancePacketId('');
-    packetChosenByVisitor.current = false;
     setTaxError('');
     setChoicesNotice('');
   };
 
   const selectVendorType = (value) => {
     setVendorType(value);
-    if (!packetChosenByVisitor.current) setCompliancePacketId(compliancePackets.find(packet => packet.vendorType === value)?.id || '');
   };
   const submittingRef = useRef(false);
   const [availableServices, setAvailableServices] = useState({
@@ -173,7 +170,6 @@ const W9Widget = () => {
     setVendorType(requireSelection ? '' : choices.vendors[0]?.value || '');
     setCompliancePackets(choices.packets);
     setCompliancePacketId('');
-    packetChosenByVisitor.current = false;
     setAvailableServices({
       serviceRequest: settings.service_request_enabled,
       aiChatbot: settings.ai_chatbot_enabled,
@@ -1110,7 +1106,7 @@ const W9Widget = () => {
                 phone={phone} setPhone={setPhone} referenceId={referenceId} setReferenceId={setReferenceId}
                 vendorTypes={vendorTypes} vendorType={vendorType} onVendorTypeChange={selectVendorType}
                 compliancePackets={compliancePackets} compliancePacketId={compliancePacketId}
-                onCompliancePacketChange={(value) => { packetChosenByVisitor.current = true; setCompliancePacketId(value); }}
+                onCompliancePacketChange={setCompliancePacketId}
                 formDefinitions={formDefinitions} formDefinitionId={formDefinitionId} onFormDefinitionChange={(value) => { setFormDefinitionId(value); setTaxError(''); setChoicesNotice(''); }}
                 sentFormCode={sentFormCode} sentMessage={sentMessage} requestError={taxError} choicesNotice={choicesNotice}
                 refreshing={refreshingChoices} onRefresh={refreshPublicChoices} enabled={w9ChaserEnabled}

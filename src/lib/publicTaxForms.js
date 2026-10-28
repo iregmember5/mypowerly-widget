@@ -3,7 +3,8 @@ const uniqueBy = (values, key) => Array.from(new Map(values.map(value => [key(va
 
 /** Public settings are the complete site-specific catalog; never invent choices. */
 export function readPublicTaxChoices(settings) {
-  if (settings?.w9_1099_chaser_enabled !== true) return { enabled: false, forms: [], vendors: [], packets: [] };
+  settings = settings ?? {};
+  const enabled = settings.w9_1099_chaser_enabled === true;
   const forms = (Array.isArray(settings.form_definitions) ? settings.form_definitions : [])
     .filter(form => isId(form?.id) && typeof form.form_code === 'string' && form.form_code.trim() && Number.isInteger(form.tax_year) && form.tax_year > 0)
     .map(form => ({ id: form.id, key: String(form.id), code: form.form_code, name: typeof form.form_name === 'string' && form.form_name.trim() ? form.form_name : form.form_code, taxYear: form.tax_year }));
@@ -13,7 +14,7 @@ export function readPublicTaxChoices(settings) {
   const packets = (Array.isArray(settings.compliance_packets) ? settings.compliance_packets : [])
     .filter(packet => isId(packet?.id) && typeof packet.name === 'string' && packet.name)
     .map(packet => ({ id: String(packet.id), name: packet.name, vendorType: packet.vendor_type || '' }));
-  return { enabled: true, forms: uniqueBy(forms, form => form.key), vendors: uniqueBy(vendors, type => type.value), packets: uniqueBy(packets, packet => packet.id) };
+  return { enabled, forms: enabled ? uniqueBy(forms, form => form.key) : [], vendors: uniqueBy(vendors, type => type.value), packets: enabled ? uniqueBy(packets, packet => packet.id) : [] };
 }
 
 export function taxSelectionPayload({ forms, vendors, packets }, definitionId, vendorType, packetId) {
