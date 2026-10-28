@@ -28,8 +28,8 @@ test('never invents a W-9 definition or a vendor default for empty metadata', ()
   assert.throws(() => taxSelectionPayload(choices, '', '', ''), /select an available tax form/);
 });
 
-test('disabled tax requests ignore returned tax lists', () => {
-  assert.deepEqual(readPublicTaxChoices({ ...settings, w9_1099_chaser_enabled: false }), { enabled: false, forms: [], vendors: [], packets: [] });
+test('disabled tax requests hide forms and packets while preserving the vendor catalog', () => {
+  assert.deepEqual(readPublicTaxChoices({ ...settings, w9_1099_chaser_enabled: false }), { enabled: false, forms: [], vendors: [{ value: 'subcontractor', label: 'Subcontractor' }], packets: [] });
 });
 
 test('vendor and packet are optional and no legacy flag or private configuration is sent', () => {

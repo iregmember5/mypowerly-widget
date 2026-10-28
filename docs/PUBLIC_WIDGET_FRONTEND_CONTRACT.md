@@ -135,7 +135,7 @@ before tax requests are available there.
 ## Domain configuration (current design)
 
 Owners configure multiple tax forms and compliance packets per domain at
-`/widget/mypowerly`. Admin settings persist `enabled_form_definition_ids` and
+`/widget/mypowerly`. Admin settings persist `public_form_definition_ids` and
 `enabled_compliance_packet_ids`, separately from existing service `enabled_forms`.
 Public validation returns only the saved permitted forms/packets and the full
 workspace vendor catalog, unfiltered by those selections. See
