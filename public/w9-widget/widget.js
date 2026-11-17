@@ -98,6 +98,10 @@
 
     window.addEventListener('message', function(event) {
       if (event.source !== iframe.contentWindow || event.origin !== widgetOrigin || !event.data) return;
+      if (event.data.type === 'WIDGET_ORIGIN_REQUEST') {
+        iframe.contentWindow.postMessage({ type: 'WIDGET_ORIGIN_RESPONSE' }, widgetOrigin);
+        return;
+      }
       if (event.data.type === 'WIDGET_DRAG_START') {
         const rect = iframe.getBoundingClientRect();
         dragStart = { right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.bottom };

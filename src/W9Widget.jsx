@@ -3,6 +3,7 @@ import Button from './components/Button';
 import Input from './components/Input';
 import W9QuickRequest from './components/W9QuickRequest';
 import { readPublicTaxChoices, taxSelectionPayload, deliveryConfirmed, publicMessage, selectionUnavailable } from './lib/publicTaxForms';
+import { getEmbeddingOrigin } from './lib/embeddingOrigin';
 import { Notification, toast } from './components/Toast';
 
 const DEFAULT_PLATFORM_LOGO = '/parrot.svg';
@@ -69,6 +70,7 @@ const W9Widget = () => {
   const [vendorType, setVendorType] = useState('');
   const openRef = useRef(false);
   const [compliancePacketId, setCompliancePacketId] = useState('');
+  const frontendOriginRef = useRef(null);
 
   const resetW9Options = () => {
     setFormDefinitionId(formDefinitions[0]?.key || '');
@@ -203,10 +205,7 @@ const W9Widget = () => {
 
       try {
         setApiBaseUrl(null);
-        let currentUrl = document.referrer;
-        if (!currentUrl || currentUrl === '') {
-          currentUrl = window.location.href;
-        }
+        let currentUrl = await getEmbeddingOrigin();
         const isLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
         if (isLocalhost) {
           if (!devMode) {
@@ -223,6 +222,7 @@ const W9Widget = () => {
         }
         
         const domain = new URL(currentUrl).origin;
+        frontendOriginRef.current = domain;
         const validationPath = '/blogs/api/v2/widget-settings/validate-frontend-url/';
 
         let lastUnregisteredResponse = null;
@@ -327,6 +327,7 @@ const W9Widget = () => {
   }, []);
 
   const siteOrigin = () => {
+    if (frontendOriginRef.current) return frontendOriginRef.current;
     let currentUrl = document.referrer || window.location.href;
     const hostname = new URL(currentUrl).hostname;
     if ((hostname === 'localhost' || hostname === '127.0.0.1') && devMode) currentUrl = devDomain;
