@@ -1,7 +1,7 @@
+import { readEffectivePoweredBy } from './lib/poweredBy';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Button from './components/Button';
-import Input from './components/Input';
 import W9QuickRequest from './components/W9QuickRequest';
+import { DemoAiChat, DemoService } from './components/DemoServices';
 import { readPublicTaxChoices, taxSelectionPayload, deliveryConfirmed, publicMessage, selectionUnavailable } from './lib/publicTaxForms';
 import { getEmbeddingOrigin } from './lib/embeddingOrigin';
 import { Notification, toast } from './components/Toast';
@@ -9,6 +9,18 @@ import { Notification, toast } from './components/Toast';
 const DEFAULT_PLATFORM_LOGO = '/parrot.svg';
 class PublicWidgetError extends Error {}
 const API_BASE_URLS = ['https://mypowerly.com/v1', 'https://esign-admin.signmary.com'];
+const shortcutIcons = {
+  chat: 'M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l1.6-4.1A8.5 8.5 0 1 1 21 11.5ZM8 12h.01M12 12h.01M16 12h.01',
+  'email-us': 'M3 5h18v14H3zM3 6l9 7 9-7',
+  'contact-us': 'M5 3h4l2 5-2.5 2a13 13 0 0 0 5.5 5.5l2-2.5 5 2v4a2 2 0 0 1-2 2C10.2 21 3 13.8 3 5a2 2 0 0 1 2-2Z',
+  'schedule-an-appointment': 'M3 5h18v16H3zM7 3v4m10-4v4M3 10h18m-9 3v5m-2.5-2.5h5',
+  'schedule-a-tour': 'M3 5h18v16H3zM7 3v4m10-4v4M3 10h18m-14 4h3m4 0h3m-10 3h3m4 0h3',
+};
+
+const shortcutButtonClass = 'pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-white bg-[#2b5a7d] text-white shadow-md hover:bg-[#1e4a63] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white';
+
+const panelHeight = 580;
+
 const notifyResize = (width, height) => window.parent.postMessage({ type: 'WIDGET_RESIZE', width, height }, '*');
 
 const getExternalUrl = (url) => {
@@ -45,18 +57,17 @@ const W9Widget = () => {
   const [loading, setLoading] = useState(false);
   const [selectedService, setSelectedService] = useState('');
   const [showServiceForm, setShowServiceForm] = useState(false);
-  const [showAIChatbot, setShowAIChatbot] = useState(false);
-  const [showLiveChat, setShowLiveChat] = useState(false);
+  const [chatTab, setChatTab] = useState(null);
+  const [demoService, setDemoService] = useState(null);
+  const [hasOpenedLiveChat, setHasOpenedLiveChat] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
   const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [shortcutTooltip, setShortcutTooltip] = useState(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [referenceId, setReferenceId] = useState('');
-  const [note, setNote] = useState('');
-  const [selectedForms, setSelectedForms] = useState([]);
-  const [availableForms, setAvailableForms] = useState([]);
   const [w9ChaserEnabled, setW9ChaserEnabled] = useState(false);
-  const [selectedW9Chaser, setSelectedW9Chaser] = useState(false);
   const [w9SentTo, setW9SentTo] = useState('');
   const [formDefinitions, setFormDefinitions] = useState([]);
   const [formDefinitionId, setFormDefinitionId] = useState('');
@@ -68,7 +79,6 @@ const W9Widget = () => {
   const [vendorTypes, setVendorTypes] = useState([]);
   const [compliancePackets, setCompliancePackets] = useState([]);
   const [vendorType, setVendorType] = useState('');
-  const openRef = useRef(false);
   const [compliancePacketId, setCompliancePacketId] = useState('');
   const frontendOriginRef = useRef(null);
 
@@ -85,7 +95,6 @@ const W9Widget = () => {
   };
   const submittingRef = useRef(false);
   const [availableServices, setAvailableServices] = useState({
-    serviceRequest: true,
     aiChatbot: true,
     liveChat: true
   });
@@ -98,6 +107,7 @@ const W9Widget = () => {
   const [siteName, setSiteName] = useState('MyPowerly');
   const [adminLogoUrl, setAdminLogoUrl] = useState('');
   const [footerLogoUrl, setFooterLogoUrl] = useState('');
+  const [poweredBy, setPoweredBy] = useState(() => readEffectivePoweredBy(null));
   const [agencyLogo, setAgencyLogo] = useState('');
   const [agencyName, setAgencyName] = useState('');
   const [agencySupportUrl, setAgencySupportUrl] = useState('');
@@ -146,19 +156,37 @@ const W9Widget = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const chatTabs = [
+    ...(availableServices.aiChatbot ? [{ id: 'ai', label: 'AI Chat' }] : []),
+    ...(availableServices.liveChat ? [{ id: 'live', label: 'Live Chat' }] : []),
+  ];
   const serviceOptions = [
     { value: '', label: 'Choose a service...' },
-    ...(availableServices.serviceRequest ? [{ value: 'service-request', label: 'Service Request' }] : []),
-    ...(availableServices.aiChatbot ? [{ value: 'ai-chatbot', label: 'AI Chatbot' }] : []),
-    ...(availableServices.liveChat ? [{ value: 'live-chat', label: 'Live Chat' }] : []),
-    ...(w9ChaserEnabled ? [{ value: 'w9-request', label: 'Tax Form Request' }] : [])
+    { value: 'email-us', label: 'Email Us' },
+    { value: 'contact-us', label: 'Contact Us' },
+    ...(w9ChaserEnabled ? [{ value: 'w9-request', label: 'W9' }] : []),
+    { value: 'schedule-an-appointment', label: 'Schedule and Appointment' },
+    ...(chatTabs.length ? [{ value: 'chat', label: 'Chat' }] : []),
+    { value: 'schedule-a-tour', label: 'Schedule a Tour' },
   ];
 
   const urlParams = new URLSearchParams(window.location.search);
   const widgetId = urlParams.get('id');
+  const canShowShortcuts = Boolean(widgetId && apiBaseUrl && !isDevelopmentMode && !validationError);
+  const shortcutCount = serviceOptions.length - 1;
+
+  useEffect(() => {
+    if (isValidating) return;
+    if (isOpen) {
+      const frameHeight = panelHeight + 20 + (canShowShortcuts ? 72 : 0);
+      notifyResize(canShowShortcuts ? 444 : 380, frameHeight);
+      return;
+    }
+    const expanded = canShowShortcuts && shortcutsOpen;
+    notifyResize(expanded ? 246 : canShowShortcuts ? 152 : 80, expanded ? 80 + shortcutCount * 52 : 80);
+  }, [isOpen, isValidating, canShowShortcuts, shortcutsOpen, shortcutCount]);
   const devMode = urlParams.get('dev') === 'true';
   const devDomain = urlParams.get('devDomain') || 'https://test.com';
-  useEffect(() => { openRef.current = isOpen; }, [isOpen]);
 
   const applyWidgetSettings = useCallback((data, domain, requireSelection = false) => {
     setValidationError(null);
@@ -173,14 +201,13 @@ const W9Widget = () => {
     setCompliancePackets(choices.packets);
     setCompliancePacketId('');
     setAvailableServices({
-      serviceRequest: settings.service_request_enabled,
       aiChatbot: settings.ai_chatbot_enabled,
       liveChat: settings.live_chat_enabled
     });
-    setAvailableForms(Array.isArray(settings.enabled_forms_details) ? settings.enabled_forms_details : []);
     setChatWidgetUrl(settings.live_chat_url || null);
     setAdminLogoUrl(settings.footer_logo || settings.admin_logo_url || '');
     setFooterLogoUrl(settings.footer_logo_url || settings.logo_link || settings.platform_url || settings.admin_platform_url || '');
+    setPoweredBy(readEffectivePoweredBy(settings));
     setAgencyLogo(settings.agency_logo || '');
     setAgencyName(settings.agency_name || '');
     setAgencySupportUrl(settings.agency_support_url || '');
@@ -274,9 +301,6 @@ const W9Widget = () => {
         setValidationError(error instanceof PublicWidgetError ? error.message : 'Unable to validate this widget. Please try again.');
       } finally {
         setIsValidating(false);
-        if (!openRef.current) {
-          notifyResize(80, 80);
-        }
         if (window.parent) {
           window.parent.postMessage({ type: 'WIDGET_READY' }, '*');
         }
@@ -369,32 +393,30 @@ const W9Widget = () => {
     e.preventDefault();
     if (submittingRef.current || refreshingChoices) return;
     setTaxError('');
-    if (!name.trim() || !email.trim() || (!selectedW9Chaser && !phone.trim()) || (selectedForms.length === 0 && !selectedW9Chaser)) {
+    if (!name.trim() || !email.trim()) {
       toast.push(<Notification type="danger">Please fill all required fields</Notification>);
       return;
     }
-    if (!widgetId || !apiBaseUrl || (selectedW9Chaser && !w9ChaserEnabled)) {
+    if (!widgetId || !apiBaseUrl || !w9ChaserEnabled) {
       setTaxError('Tax form requests are unavailable for this website.');
       toast.push(<Notification type="danger">Invalid widget configuration</Notification>);
       return;
     }
-    let taxSelection = {};
-    if (selectedW9Chaser) {
-      try {
-        taxSelection = taxSelectionPayload({ forms: formDefinitions, vendors: vendorTypes, packets: compliancePackets }, formDefinitionId, vendorType, compliancePacketId);
-      } catch (error) {
-        setTaxError(error.message);
-        return;
-      }
+    let taxSelection;
+    try {
+      taxSelection = taxSelectionPayload({ forms: formDefinitions, vendors: vendorTypes, packets: compliancePackets }, formDefinitionId, vendorType, compliancePacketId);
+    } catch (error) {
+      setTaxError(error.message);
+      return;
     }
     submittingRef.current = true;
     setLoading(true);
     try {
       const payload = {
         frontend_url: siteOrigin(), workspace_id: widgetId,
-        form_ids: selectedW9Chaser ? [] : selectedForms.map(id => parseInt(id)),
+        form_ids: [],
         name: name.trim(), email: email.trim(), phone: phone.trim(),
-        reference_id: referenceId.trim(), note, ...taxSelection
+        reference_id: referenceId.trim(), note: '', ...taxSelection
       };
       const response = await fetch(`${apiBaseUrl}/api/widgets/submit-form/`, {
         method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -404,23 +426,18 @@ const W9Widget = () => {
       if (response.ok && deliveryConfirmed(data)) {
         const message = publicMessage(data, 'Your request was sent. Check your email.');
         toast.push(<Notification type="success">{message}</Notification>);
-        if (selectedW9Chaser) {
-          setSentFormCode(formDefinitions.find(form => form.key === formDefinitionId)?.code || 'tax form');
-          setSentMessage(message);
-          setW9SentTo(email.trim());
-          setTimeout(() => contentRef.current?.scrollTo({ top: 0 }), 0);
-        } else {
-          setIsOpen(false);
-          notifyResize(80, 80);
-        }
-        setName(''); setEmail(''); setPhone(''); setReferenceId(''); setNote(''); setSelectedForms([]);
+        setSentFormCode(formDefinitions.find(form => form.key === formDefinitionId)?.code || 'tax form');
+        setSentMessage(message);
+        setW9SentTo(email.trim());
+        setTimeout(() => contentRef.current?.scrollTo({ top: 0 }), 0);
+        setName(''); setEmail(''); setPhone(''); setReferenceId('');
       } else {
         const message = data.success === true && response.ok
           ? 'Your request was accepted, but email delivery has not been confirmed. Please check your inbox before sending again.'
           : publicMessage(data, 'Unable to send your request. Please try again.');
         setTaxError(message);
         toast.push(<Notification type="danger">{message}</Notification>);
-        if (selectedW9Chaser && selectionUnavailable(data)) {
+        if (selectionUnavailable(data)) {
           await refreshPublicChoices();
           setTimeout(() => contentRef.current?.scrollTo({ top: 0 }), 0);
         }
@@ -435,91 +452,96 @@ const W9Widget = () => {
     }
   };
 
+  const selectChatTab = (tab) => {
+    setChatTab(tab);
+    if (tab === 'live') setHasOpenedLiveChat(true);
+  };
+
+  const resetChat = () => {
+    setChatTab(null);
+    setHasOpenedLiveChat(false);
+    setIframeLoading(true);
+  };
+
   const handleOpen = () => {
+    setShortcutTooltip(null);
     setIsOpen(true);
     setShowServiceForm(false);
-    setShowAIChatbot(false);
-    setShowLiveChat(false);
+    setDemoService(null);
+    resetChat();
     setSelectedService('');
     setServiceDropdownOpen(false);
     setName('');
     setEmail('');
     setPhone('');
     setReferenceId('');
-    setNote('');
-    setSelectedForms([]);
-    setSelectedW9Chaser(false);
     setW9SentTo('');
     resetW9Options();
-    notifyResize(380, 600);
     setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   };
 
   const handleClose = () => {
+    setShortcutTooltip(null);
     setIsOpen(false);
     setShowServiceForm(false);
-    setShowAIChatbot(false);
+    setDemoService(null);
+    resetChat();
     setSelectedService('');
     setServiceDropdownOpen(false);
     setName('');
     setEmail('');
     setPhone('');
     setReferenceId('');
-    setNote('');
-    setSelectedForms([]);
-    setSelectedW9Chaser(false);
     setW9SentTo('');
     resetW9Options();
-    notifyResize(80, 80);
   };
 
-  const handleServiceSelect = () => {
-    if (!selectedService) {
+  const handleServiceSelect = (service) => {
+    if (!service) {
       toast.push(<Notification type="danger">Please select a service</Notification>);
       return;
     }
-    if (selectedService === 'w9-request') {
+    if (service === 'w9-request') {
       if (!w9ChaserEnabled) return;
-      setSelectedW9Chaser(true);
-      setSelectedForms([]);
       setShowServiceForm(true);
-      notifyResize(380, 600);
       setTimeout(() => contentRef.current?.scrollTo({ top: 0 }), 0);
-    } else if (selectedService === 'service-request') {
-      if (selectedForms.length === 0 && !selectedW9Chaser) {
-        toast.push(<Notification type="danger">Please select at least one form type</Notification>);
-        return;
-      }
-      setShowServiceForm(true);
-      notifyResize(380, 600);
-      setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 0);
-    } else if (selectedService === 'ai-chatbot') {
-      setShowAIChatbot(true);
-      notifyResize(380, 500);
-    } else if (selectedService === 'live-chat') {
-      if (chatWidgetUrl) {
-        setShowLiveChat(true);
-        notifyResize(380, 600);
-      } else {
-        toast.push(<Notification type="danger">Live chat not available</Notification>);
-      }
+    } else if (service === 'chat') {
+      if (!chatTabs.length) return;
+      selectChatTab(chatTabs[0].id);
+      contentRef.current?.scrollTo({ top: 0 });
     } else {
-      toast.push(<Notification type="info">{selectedService} coming soon!</Notification>);
+      setDemoService(service);
+      contentRef.current?.scrollTo({ top: 0 });
     }
+  };
+
+  const activeService = showServiceForm ? 'w9-request' : chatTab ? 'chat' : demoService;
+
+  const showShortcutTooltip = (button, label) => {
+    const rect = button.getBoundingClientRect();
+    setShortcutTooltip({ label, top: rect.top + rect.height / 2, right: window.innerWidth - rect.left + 9 });
+  };
+
+  const handleShortcutClick = (service) => {
+    setShortcutTooltip(null);
+    if (loading) return;
+    if (isOpen && activeService === service) {
+      handleClose();
+      return;
+    }
+    handleOpen();
+    setSelectedService(service);
+    handleServiceSelect(service);
   };
 
   const handleBackButton = () => {
     setShowServiceForm(false);
-    setShowAIChatbot(false);
-    setShowLiveChat(false);
-    setIframeLoading(true);
-    setSelectedW9Chaser(false);
-    setSelectedForms([]);
+    setDemoService(null);
+    resetChat();
     setW9SentTo('');
     resetW9Options();
     setSelectedService('');
     setServiceDropdownOpen(false);
-    notifyResize(380, 500);
     setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
 
@@ -541,82 +563,168 @@ const W9Widget = () => {
       zIndex: 9999,
       background: 'transparent',
       padding: '15px',
+      paddingBottom: isOpen && canShowShortcuts ? '87px' : '15px',
+      paddingRight: isOpen && canShowShortcuts ? '79px' : '15px',
       display: isValidating ? 'none' : 'block',
       pointerEvents: isOpen ? 'auto' : 'none'
     }}>
-      <button
-        aria-label="Open chat — drag to move"
-        title="Click to open, or drag to move"
-        onPointerDown={startLauncherDrag}
-        onPointerMove={moveLauncherDrag}
-        onPointerUp={endLauncherDrag}
-        onPointerCancel={endLauncherDrag}
-        onLostPointerCapture={endLauncherDrag}
-        onClick={(event) => {
-          if (suppressLauncherClick.current && event.detail !== 0) return;
-          handleOpen();
-        }}
-        style={{
-          touchAction: 'none',
-          userSelect: 'none',
-          width: '70px',
-          height: '70px',
-          backgroundColor: 'transparent',
-          border: 'none',
-          cursor: 'grab',
-          transition: 'transform 0.2s',
-          padding: 0,
-          display: (isOpen || isValidating) ? 'none' : 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          pointerEvents: 'auto'
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-      >
-        {showExclamation && (
-          <div style={{
-            position: 'absolute',
-            top: '-45px',
-            right: '-10px',
-            backgroundColor: 'white',
-            color: '#2b5a7d',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            whiteSpace: 'nowrap',
-            animation: 'fadeIn 0.3s ease-in'
-          }}>
-            We're here! 👋
-            <div style={{
-              position: 'absolute',
-              bottom: '-6px',
-              right: '20px',
-              width: '0',
-              height: '0',
-              borderLeft: '6px solid transparent',
-              borderRight: '6px solid transparent',
-              borderTop: '6px solid white'
-            }}></div>
-          </div>
-        )}
-        <img draggable={false} src="/parrot.svg" alt="Chat" style={{ width: '70px', height: '70px', position: 'relative', zIndex: 1 }} />
-        <style>{`
-          @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(5px); }
-            100% { opacity: 1; transform: translateY(0); }
-          }
-        `}</style>
-      </button>
+      {(!isOpen || canShowShortcuts) && (
+        <div className="flex items-end gap-2" style={isOpen ? { position: 'absolute', right: 15, bottom: 15 } : undefined}>
+          <button
+            aria-label={isOpen ? 'Close widget' : 'Open widget — drag to move'}
+            aria-expanded={isOpen}
+            title={isOpen ? 'Click to close, or drag to move' : 'Click to open, or drag to move'}
+            onPointerDown={startLauncherDrag}
+            onPointerMove={moveLauncherDrag}
+            onPointerUp={endLauncherDrag}
+            onPointerCancel={endLauncherDrag}
+            onLostPointerCapture={endLauncherDrag}
+            onClick={(event) => {
+              if (loading || (suppressLauncherClick.current && event.detail !== 0)) return;
+              if (isOpen) handleClose();
+              else handleOpen();
+            }}
+            style={{
+              touchAction: 'none',
+              userSelect: 'none',
+              width: '70px',
+              height: '70px',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'grab',
+              transition: 'transform 0.2s',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              pointerEvents: 'auto'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            {showExclamation && (
+              <div style={{
+                position: 'absolute',
+                top: '-45px',
+                right: '-10px',
+                backgroundColor: 'white',
+                color: '#2b5a7d',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                whiteSpace: 'nowrap',
+                animation: 'fadeIn 0.3s ease-in'
+              }}>
+                We're here! 👋
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-6px',
+                  right: '20px',
+                  width: '0',
+                  height: '0',
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '6px solid white'
+                }}></div>
+              </div>
+            )}
+            <img draggable={false} src="/parrot.svg" alt="Chat" style={{ width: '70px', height: '70px', position: 'relative', zIndex: 1 }} />
+            <style>{`
+              @keyframes shortcut-pop {
+                from { opacity: 0; transform: translateY(var(--shortcut-rise)) scale(0.55); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+              }
+              @keyframes fadeIn {
+                0% { opacity: 0; transform: translateY(5px); }
+                100% { opacity: 1; transform: translateY(0); }
+              }
+            `}</style>
+          </button>
+          {canShowShortcuts && (
+            <div className="relative">
+              <button
+                type="button"
+                className={shortcutButtonClass}
+                style={{ width: 52, height: 52 }}
+                aria-label={shortcutsOpen ? 'Hide service shortcuts' : 'Show service shortcuts'}
+                aria-expanded={shortcutsOpen}
+                aria-controls="widget-service-shortcuts"
+                onClick={() => {
+                  setShortcutTooltip(null);
+                  setShortcutsOpen(open => !open);
+                }}
+              >
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="5" cy="12" r="2.2" />
+                  <circle cx="12" cy="12" r="2.2" />
+                  <circle cx="19" cy="12" r="2.2" />
+                </svg>
+              </button>
+              {shortcutsOpen && (
+                <div
+                  id="widget-service-shortcuts"
+                  role="group"
+                  aria-label="Service shortcuts"
+                  onScroll={() => setShortcutTooltip(null)}
+                  className="pointer-events-auto absolute bottom-full right-0 mb-2 max-h-[calc(100dvh-76px)] overflow-y-auto [scrollbar-width:none]"
+                >
+                  <div className="flex flex-col gap-2">
+                    {serviceOptions.filter(option => option.value).map((option, index) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={shortcutButtonClass + ' motion-safe:animate-[shortcut-pop_240ms_ease-out_both]'}
+                        style={{ '--shortcut-rise': ((shortcutCount - index) * 52 + 4) + 'px', animationDelay: ((shortcutCount - index - 1) * 30) + 'ms' }}
+                        aria-label={option.label}
+                        onPointerEnter={event => {
+                          if (event.pointerType === 'mouse') showShortcutTooltip(event.currentTarget, option.label);
+                        }}
+                        onPointerLeave={event => {
+                          if (!event.currentTarget.matches(':focus-visible')) setShortcutTooltip(null);
+                        }}
+                        onFocus={event => {
+                          if (event.currentTarget.matches(':focus-visible')) showShortcutTooltip(event.currentTarget, option.label);
+                        }}
+                        onBlur={() => setShortcutTooltip(null)}
+                        aria-pressed={isOpen && activeService === option.value}
+                        onClick={() => handleShortcutClick(option.value)}
+                      >
+                        {option.value === 'w9-request' ? (
+                          <span aria-hidden="true" className="text-sm font-bold">W9</span>
+                        ) : (
+                          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d={shortcutIcons[option.value]} />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {shortcutsOpen && shortcutTooltip && (
+        <div
+          aria-hidden="true"
+          style={{ top: shortcutTooltip.top, right: shortcutTooltip.right }}
+          className="pointer-events-none fixed z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-950 px-2.5 py-1.5 text-xs font-medium text-white shadow-md"
+        >
+          {shortcutTooltip.label}
+          <span className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-gray-950" />
+        </div>
+      )}
 
       {isOpen && (
         <div style={{
-          width: 'min(360px, calc(100vw - 24px))',
-          maxHeight: 'calc(100dvh - 24px)',
-          height: showServiceForm ? '580px' : showLiveChat ? '592px' : '480px',
+          width: canShowShortcuts ? 'min(360px, calc(100vw - 88px))' : 'min(360px, calc(100vw - 24px))',
+          maxHeight: canShowShortcuts ? 'calc(100dvh - 96px)' : 'calc(100dvh - 24px)',
+          height: panelHeight,
           backgroundColor: 'white',
           borderRadius: '16px',
           border: '2px solid #d1d5db',
@@ -628,7 +736,7 @@ const W9Widget = () => {
           <div style={{
             background: '#2b5a7d',
             color: 'white',
-            padding: '20px',
+            padding: '8px 14px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -636,8 +744,8 @@ const W9Widget = () => {
             borderTopRightRadius: '16px',
             flexShrink: 0
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-              {(showServiceForm || showAIChatbot || showLiveChat) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              {(showServiceForm || chatTab || demoService) && (
                 <button
                   onClick={handleBackButton}
                   disabled={loading}
@@ -662,7 +770,7 @@ const W9Widget = () => {
                   ←
                 </button>
               )}
-              <h3 title={siteName} style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '18px', fontWeight: 700, color: 'white' }}>{siteName}</h3>
+              <h3 title={siteName} style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '16px', fontWeight: 700, color: 'white' }}>{siteName}</h3>
             </div>
             <button
               onClick={handleClose}
@@ -690,7 +798,7 @@ const W9Widget = () => {
           </div>
           <div style={{
             background: '#1e4a63',
-            padding: '6px 12px',
+            padding: '3px 10px',
             borderTop: '1px solid rgba(255,255,255,0.15)',
             flexShrink: 0,
             textAlign: 'center',
@@ -713,10 +821,11 @@ const W9Widget = () => {
             flex: 1,
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: showLiveChat ? '0' : '10px',
-            paddingBottom: showLiveChat ? '0' : '14px',
+            padding: '10px',
+            paddingTop: chatTab ? 0 : '10px',
+            paddingBottom: '14px',
             minHeight: 0,
-            display: showLiveChat ? 'block' : 'flex',
+            display: 'flex',
             flexDirection: 'column',
             overscrollBehavior: 'contain'
           }}>
@@ -807,71 +916,67 @@ const W9Widget = () => {
               }}>
                 Invalid widget configuration. Widget ID is required.
               </div>
-            ) : showAIChatbot ? (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-                minHeight: '300px'
-              }}>
-                <div style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#374151',
-                  fontSize: '32px',
-                  fontWeight: 700,
-                  textAlign: 'center',
-                  padding: '12px'
-                }}>
-                      <div>
-                        <div style={{ fontSize: '32px', fontWeight: 800, color: '#2b5a7d' }}>AI Chatbot</div>
-                        <div style={{ fontSize: '28px', fontWeight: 700, color: '#374151', marginTop: '8px' }}>Coming Soon</div>
-                      </div>
-                    </div>
-              </div>
-            ) : showLiveChat ? (
-              <div style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
-                {iframeLoading && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '16px',
-                    backgroundColor: 'white'
-                  }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      border: '4px solid #e5e7eb',
-                      borderTop: '4px solid #2b5a7d',
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite'
-                    }}></div>
-                    <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Loading chat...</p>
+            ) : chatTab ? (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div role="tablist" aria-label="Chat type" className="flex shrink-0 border-b border-gray-200">
+                  {chatTabs.map((tab, index) => (
+                    <button
+                      key={tab.id}
+                      id={`chat-tab-${tab.id}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={chatTab === tab.id}
+                      aria-controls={`chat-panel-${tab.id}`}
+                      tabIndex={chatTab === tab.id ? 0 : -1}
+                      onClick={() => selectChatTab(tab.id)}
+                      onKeyDown={(event) => {
+                        const last = chatTabs.length - 1;
+                        let next;
+                        switch (event.key) {
+                          case 'ArrowRight': next = (index + 1) % chatTabs.length; break;
+                          case 'ArrowLeft': next = (index + last) % chatTabs.length; break;
+                          case 'Home': next = 0; break;
+                          case 'End': next = last; break;
+                          default: return;
+                        }
+                        event.preventDefault();
+                        const nextTab = chatTabs[next].id;
+                        selectChatTab(nextTab);
+                        document.getElementById(`chat-tab-${nextTab}`)?.focus();
+                      }}
+                      className={`min-h-7 flex-1 border-b-2 px-2 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#2b5a7d] ${chatTab === tab.id ? 'border-[#2b5a7d] text-[#2b5a7d]' : 'border-transparent text-gray-600'}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {availableServices.aiChatbot && (
+                  <div id="chat-panel-ai" role="tabpanel" aria-labelledby="chat-tab-ai" tabIndex={0} hidden={chatTab !== 'ai'} className="min-h-0 flex-1">
+                    <DemoAiChat />
                   </div>
                 )}
-                <iframe
-                  src={chatWidgetUrl || ''}
-                  onLoad={() => setIframeLoading(false)}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                    display: 'block',
-                    margin: '-30px 0 0 0'
-                  }}
-                  title="Live Chat"
-                />
+                {availableServices.liveChat && (
+                  <div id="chat-panel-live" role="tabpanel" aria-labelledby="chat-tab-live" tabIndex={0} hidden={chatTab !== 'live'} className="relative min-h-0 flex-1 overflow-hidden">
+                    {!chatWidgetUrl ? (
+                      <p className="p-4 text-center text-sm text-gray-600">Live chat is currently unavailable.</p>
+                    ) : hasOpenedLiveChat && (
+                      <>
+                        {iframeLoading && (
+                          <p role="status" className="absolute inset-0 grid place-content-center bg-white text-sm text-gray-600">Loading chat…</p>
+                        )}
+                        <iframe
+                          src={chatWidgetUrl}
+                          onLoad={() => setIframeLoading(false)}
+                          style={{ width: '100%', height: 'calc(100% + 30px)', border: 'none', display: 'block', marginTop: '-30px' }}
+                          title="Live Chat"
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-
+            ) : demoService ? (
+              <DemoService key={demoService} service={demoService} />
             ) : !showServiceForm ? (
               <>
                 <div style={{
@@ -956,7 +1061,8 @@ const W9Widget = () => {
                         borderRadius: '10px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                         zIndex: 1000,
-                        overflow: 'hidden'
+                        maxHeight: 184,
+                        overflowY: 'auto'
                       }}>
                         {serviceOptions.map((option) => (
                           <button
@@ -965,8 +1071,6 @@ const W9Widget = () => {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedService(option.value);
-                              setSelectedForms([]);
-                              setSelectedW9Chaser(false);
                               setW9SentTo('');
                               setServiceDropdownOpen(false);
                             }}
@@ -991,109 +1095,23 @@ const W9Widget = () => {
                   </div>
                 </div>
 
-                {selectedService === 'service-request' && (availableForms.length > 0 || w9ChaserEnabled) && (
-                  <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <label style={{
-                      display: 'block',
-                      margin: 0,
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: '#374151'
-                    }}>
-                      Select type of service request below:
-                    </label>
-                    <div style={{ marginTop: '8px' }}>
-                      <span className="blinking-arrow" style={{ fontSize: '24px', color: '#1d4ed8', fontWeight: 700 }}>⬇</span>
-                    </div>
-                    <style>{`
-                      @keyframes blink-bounce {
-                        0%, 100% { opacity: 1; transform: translateY(0); }
-                        50% { opacity: 0.3; transform: translateY(6px); }
-                      }
-                      .blinking-arrow {
-                        display: inline-block;
-                        animation: blink-bounce 1.2s infinite ease-in-out;
-                      }
-                    `}</style>
-                    <div style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                      justifyContent: 'center'
-                    }}>
-                      {availableForms.map((form) => (
-                        <button
-                          key={form.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedW9Chaser(false);
-                            setSelectedForms(prev =>
-                              prev.includes(form.id.toString())
-                                ? prev.filter(id => id !== form.id.toString())
-                                : [...prev, form.id.toString()]
-                            );
-                          }}
-                          style={{
-                            padding: '8px 14px',
-                            border: selectedForms.includes(form.id.toString()) ? '2px solid #2b5a7d' : '2px solid #e5e7eb',
-                            borderRadius: '8px',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            backgroundColor: selectedForms.includes(form.id.toString()) ? '#f0f9ff' : 'white',
-                            color: selectedForms.includes(form.id.toString()) ? '#2b5a7d' : '#374151',
-                            cursor: 'pointer',
-                            textAlign: 'center',
-                            transition: 'all 0.2s',
-                            outline: 'none'
-                          }}
-                        >
-                          {form.title}
-                        </button>
-                      ))}
-                      {w9ChaserEnabled && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedW9Chaser(!selectedW9Chaser);
-                            setSelectedForms([]);
-                          }}
-                          style={{
-                            padding: '8px 14px',
-                            border: selectedW9Chaser ? '2px solid #2b5a7d' : '2px solid #e5e7eb',
-                            borderRadius: '8px',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            backgroundColor: selectedW9Chaser ? '#f0f9ff' : 'white',
-                            color: selectedW9Chaser ? '#2b5a7d' : '#374151',
-                            cursor: 'pointer',
-                            textAlign: 'center',
-                            transition: 'all 0.2s',
-                            outline: 'none'
-                          }}
-                        >
-                          Tax Form Request
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
                 <button
                   type="button"
-                  onClick={handleServiceSelect}
-                  disabled={!selectedService || (selectedService === 'service-request' && selectedForms.length === 0 && !selectedW9Chaser)}
+                  onClick={() => handleServiceSelect(selectedService)}
+                  disabled={!selectedService}
                   style={{
                     width: '100%',
                     padding: '14px',
-                    background: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0 || selectedW9Chaser)) ? '#2b5a7d' : '#cbd5e1',
+                    background: selectedService ? '#2b5a7d' : '#cbd5e1',
                     color: 'white',
                     border: 'none',
                     borderRadius: '10px',
-                    cursor: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0 || selectedW9Chaser)) ? 'pointer' : 'not-allowed',
+                    cursor: selectedService ? 'pointer' : 'not-allowed',
                     fontSize: '15px',
                     fontWeight: 600,
-                    boxShadow: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0 || selectedW9Chaser)) ? '0 4px 12px rgba(43, 90, 125, 0.4)' : 'none',
+                    boxShadow: selectedService ? '0 4px 12px rgba(43, 90, 125, 0.4)' : 'none',
                     transition: 'all 0.2s',
-                    opacity: (selectedService && (selectedService !== 'service-request' || selectedForms.length > 0 || selectedW9Chaser)) ? 1 : 0.6
+                    opacity: selectedService ? 1 : 0.6
                   }}
                 >
                   Continue →
@@ -1101,7 +1119,7 @@ const W9Widget = () => {
                 </div>
               </>
 
-            ) : selectedW9Chaser ? (
+            ) : (
               <W9QuickRequest
                 name={name} setName={setName} email={email} setEmail={setEmail}
                 phone={phone} setPhone={setPhone} referenceId={referenceId} setReferenceId={setReferenceId}
@@ -1113,125 +1131,6 @@ const W9Widget = () => {
                 refreshing={refreshingChoices} onRefresh={refreshPublicChoices} enabled={w9ChaserEnabled}
                 loading={loading} onSubmit={handleSubmit} sentTo={w9SentTo} onReset={() => { setW9SentTo(''); resetW9Options(); }}
               />
-            ) : (
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-                  padding: '16px',
-                  borderRadius: '12px',
-                  marginBottom: '6px',
-                  textAlign: 'center'
-                }}>
-                  <h2 style={{
-                    margin: 0,
-                    fontSize: '19px',
-                    fontWeight: 700,
-                    color: '#2b5a7d'
-                  }}>
-                    Request for {[...selectedForms.map(f => availableForms.find(form => form.id.toString() === f)?.title).filter(Boolean), ...(selectedW9Chaser ? ['W9 & 1099'] : [])].join(', ')}
-                  </h2>
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
-                    Name *
-                  </label>
-                  <Input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
-                    disabled={loading}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
-                    Email *
-                  </label>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    disabled={loading}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
-                    Phone Number *
-                  </label>
-                  <Input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Enter your phone"
-                    disabled={loading}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
-                    Reference ID
-                    <span title="If a contractor has asked you to fill out the W9 form, please provide the reference number they gave you. Or else provide their cell phone number or email address in this field." style={{ cursor: 'help', marginLeft: '4px', fontSize: '12px', color: '#9ca3af' }}>ⓘ</span>
-                  </label>
-                  <Input
-                    type="text"
-                    value={referenceId}
-                    onChange={(e) => setReferenceId(e.target.value)}
-                    placeholder="Ref no/phone/email of the person who referred you"
-                    disabled={loading}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
-                    Note (Optional)
-                  </label>
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Add a note..."
-                    disabled={loading}
-                    rows={2}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontFamily: 'inherit',
-                      maxHeight: '50px',
-                      resize: 'none',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                    onFocus={(e) => !loading && (e.currentTarget.style.borderColor = '#2b5a7d')}
-                    onBlur={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  variant="solid"
-                  loading={loading}
-                  style={{ 
-                    width: '100%',
-                    backgroundColor: '#2b5a7d',
-                    color: 'white',
-                    marginTop: '8px',
-                    padding: '12px 16px',
-                    fontSize: '15px',
-                    borderRadius: '10px'
-                  }}
-                >
-                  {loading ? 'Submitting...' : 'Submit Request'}
-                </Button>
-              </form>
             )}
           </div>
 
@@ -1282,9 +1181,15 @@ const W9Widget = () => {
                 ) : null}
               </div>
             </div>
-            <a href={platformHref} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center border-t border-gray-100 px-4 py-1.5 text-[10px] font-medium text-gray-500 transition-colors hover:text-gray-700">
-              Powered by MyPowerly
-            </a>
+            {poweredBy.url ? (
+              <a href={poweredBy.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center border-t border-gray-100 px-4 py-1.5 text-[10px] font-medium text-gray-500 transition-colors hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+                Powered by {poweredBy.name}
+              </a>
+            ) : (
+              <div className="flex items-center justify-center border-t border-gray-100 px-4 py-1.5 text-[10px] font-medium text-gray-500">
+                Powered by {poweredBy.name}
+              </div>
+            )}
           </div>
         </div>
       )}

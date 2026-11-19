@@ -1,6 +1,6 @@
 (function() {
   // ============ TESTING CONFIG ============
-  const DEV_MODE = false;                                          // Set to true for local testing
+  const DEV_MODE = true;                                          // Set to true for local testing
   const DEV_WIDGET_URL = 'http://localhost:5174/';                // Local widget URL when DEV_MODE is true
   const DEV_DOMAIN = 'https://test.com';                          // Registered Domain to use for API calls when DEV_MODE is true
   const PROD_WIDGET_URL = 'https://mypowerlywidget.mypowerly.com'; // Live widget URL
