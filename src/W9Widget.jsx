@@ -1,4 +1,6 @@
-import { readEffectivePoweredBy } from './lib/poweredBy';
+import WidgetFooter, { readFooterContent } from './components/WidgetFooter';
+import WidgetHome from './components/WidgetHome';
+import { WidgetBrandAvatar } from './components/PartnerLogos';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import W9QuickRequest from './components/W9QuickRequest';
 import { DemoAiChat, DemoService } from './components/DemoServices';
@@ -6,7 +8,6 @@ import { readPublicTaxChoices, taxSelectionPayload, deliveryConfirmed, publicMes
 import { getEmbeddingOrigin } from './lib/embeddingOrigin';
 import { Notification, toast } from './components/Toast';
 
-const DEFAULT_PLATFORM_LOGO = '/parrot.svg';
 class PublicWidgetError extends Error {}
 const API_BASE_URLS = ['https://mypowerly.com/v1', 'https://esign-admin.signmary.com'];
 const shortcutIcons = {
@@ -23,34 +24,6 @@ const panelHeight = 580;
 
 const notifyResize = (width, height) => window.parent.postMessage({ type: 'WIDGET_RESIZE', width, height }, '*');
 
-const getExternalUrl = (url) => {
-  const trimmedUrl = url?.trim();
-  if (!trimmedUrl) return '';
-
-  return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
-};
-
-const getFaviconUrl = (url) => {
-  try {
-    return `https://www.google.com/s2/favicons?domain=${new URL(getExternalUrl(url)).hostname}&sz=64`;
-  } catch {
-    return '';
-  }
-};
-
-const getSocialBrand = (url) => {
-  const value = url?.toLowerCase() || '';
-
-  if (value.includes('instagram')) return { label: '◎', color: '#e1306c' };
-  if (value.includes('tiktok')) return { label: '♪', color: '#111827' };
-  if (value.includes('twitter') || value.includes('x.com')) return { label: '𝕏', color: '#111827' };
-  if (value.includes('facebook')) return { label: 'f', color: '#1877f2' };
-  if (value.includes('linkedin')) return { label: 'in', color: '#0a66c2' };
-  if (value.includes('youtube')) return { label: '▶', color: '#ff0000' };
-
-  return { label: '↗', color: '#64748b' };
-};
-
 const W9Widget = () => {
   const [email, setEmail] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -61,8 +34,8 @@ const W9Widget = () => {
   const [demoService, setDemoService] = useState(null);
   const [hasOpenedLiveChat, setHasOpenedLiveChat] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
-  const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [shortcutMenuMounted, setShortcutMenuMounted] = useState(false);
   const [shortcutTooltip, setShortcutTooltip] = useState(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -105,14 +78,9 @@ const W9Widget = () => {
   const [apiBaseUrl, setApiBaseUrl] = useState(null);
   const [showExclamation, setShowExclamation] = useState(true);
   const [siteName, setSiteName] = useState('MyPowerly');
-  const [adminLogoUrl, setAdminLogoUrl] = useState('');
-  const [footerLogoUrl, setFooterLogoUrl] = useState('');
-  const [poweredBy, setPoweredBy] = useState(() => readEffectivePoweredBy(null));
-  const [agencyLogo, setAgencyLogo] = useState('');
-  const [agencyName, setAgencyName] = useState('');
-  const [agencySupportUrl, setAgencySupportUrl] = useState('');
-  const [customSocialLinks, setCustomSocialLinks] = useState([]);
-  const [userProfile, setUserProfile] = useState(null);
+  const [siteDomain, setSiteDomain] = useState('');
+  const [siteLogoUrl, setSiteLogoUrl] = useState('');
+  const [footerContent, setFooterContent] = useState(() => readFooterContent({}, 'MyPowerly'));
   const contentRef = useRef(null);
   const launcherDrag = useRef(null);
   const suppressLauncherClick = useRef(false);
@@ -164,7 +132,7 @@ const W9Widget = () => {
     { value: '', label: 'Choose a service...' },
     { value: 'email-us', label: 'Email Us' },
     { value: 'contact-us', label: 'Contact Us' },
-    ...(w9ChaserEnabled ? [{ value: 'w9-request', label: 'W9' }] : []),
+    ...(w9ChaserEnabled ? [{ value: 'w9-request', label: 'W9 - Vendor Compliance' }] : []),
     { value: 'schedule-an-appointment', label: 'Schedule and Appointment' },
     ...(chatTabs.length ? [{ value: 'chat', label: 'Chat' }] : []),
     { value: 'schedule-a-tour', label: 'Schedule a Tour' },
@@ -182,15 +150,23 @@ const W9Widget = () => {
       notifyResize(canShowShortcuts ? 444 : 380, frameHeight);
       return;
     }
-    const expanded = canShowShortcuts && shortcutsOpen;
+    const expanded = canShowShortcuts && shortcutMenuMounted;
     notifyResize(expanded ? 246 : canShowShortcuts ? 152 : 80, expanded ? 80 + shortcutCount * 52 : 80);
-  }, [isOpen, isValidating, canShowShortcuts, shortcutsOpen, shortcutCount]);
+  }, [isOpen, isValidating, canShowShortcuts, shortcutMenuMounted, shortcutCount]);
+  useEffect(() => {
+    if (shortcutsOpen || !shortcutMenuMounted) return;
+    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 330;
+    const timer = setTimeout(() => setShortcutMenuMounted(false), delay);
+    return () => clearTimeout(timer);
+  }, [shortcutsOpen, shortcutMenuMounted]);
   const devMode = urlParams.get('dev') === 'true';
   const devDomain = urlParams.get('devDomain') || 'https://test.com';
 
   const applyWidgetSettings = useCallback((data, domain, requireSelection = false) => {
     setValidationError(null);
     setSiteName(data.site_name || new URL(domain).hostname);
+    setSiteDomain(new URL(domain).hostname);
+    setSiteLogoUrl(data.widget_settings?.footer_logo || '');
     const settings = data.widget_settings;
     const choices = readPublicTaxChoices(settings);
     setW9ChaserEnabled(choices.enabled);
@@ -205,21 +181,7 @@ const W9Widget = () => {
       liveChat: settings.live_chat_enabled
     });
     setChatWidgetUrl(settings.live_chat_url || null);
-    setAdminLogoUrl(settings.footer_logo || settings.admin_logo_url || '');
-    setFooterLogoUrl(settings.footer_logo_url || settings.logo_link || settings.platform_url || settings.admin_platform_url || '');
-    setPoweredBy(readEffectivePoweredBy(settings));
-    setAgencyLogo(settings.agency_logo || '');
-    setAgencyName(settings.agency_name || '');
-    setAgencySupportUrl(settings.agency_support_url || '');
-    const configuredLinks = Array.isArray(settings.custom_social_links) ? settings.custom_social_links
-      .map(link => ({ ...link, url: link?.url || link?.href || link?.link || link?.social_url || '' })).filter(link => link.url) : [];
-    const legacyLinks = [
-      { url: settings.footer_instagram, label: 'Instagram' }, { url: settings.footer_tiktok, label: 'TikTok' },
-      { url: settings.footer_twitter || settings.footer_x, label: 'X' }, { url: settings.footer_facebook, label: 'Facebook' },
-      { url: settings.footer_youtube, label: 'YouTube' }, { url: settings.footer_linkedin, label: 'LinkedIn' }
-    ].filter(link => link.url);
-    setCustomSocialLinks([...configuredLinks, ...legacyLinks]);
-    setUserProfile(settings.user_profile || null);
+    setFooterContent(readFooterContent(settings));
   }, []);
 
   useEffect(() => { 
@@ -309,12 +271,6 @@ const W9Widget = () => {
 
     validateWidget();
   }, [widgetId, devMode, devDomain, applyWidgetSettings]);
-
-  useEffect(() => {
-    const handleClickOutside = () => setServiceDropdownOpen(false);
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     document.body.style.backgroundColor = 'transparent';
@@ -470,7 +426,6 @@ const W9Widget = () => {
     setDemoService(null);
     resetChat();
     setSelectedService('');
-    setServiceDropdownOpen(false);
     setName('');
     setEmail('');
     setPhone('');
@@ -487,7 +442,6 @@ const W9Widget = () => {
     setDemoService(null);
     resetChat();
     setSelectedService('');
-    setServiceDropdownOpen(false);
     setName('');
     setEmail('');
     setPhone('');
@@ -516,6 +470,7 @@ const W9Widget = () => {
   };
 
   const activeService = showServiceForm ? 'w9-request' : chatTab ? 'chat' : demoService;
+  const headerTitle = activeService ? serviceOptions.find(option => option.value === activeService)?.label || 'Chat' : siteDomain || siteName;
 
   const showShortcutTooltip = (button, label) => {
     const rect = button.getBoundingClientRect();
@@ -541,22 +496,12 @@ const W9Widget = () => {
     setW9SentTo('');
     resetW9Options();
     setSelectedService('');
-    setServiceDropdownOpen(false);
     setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
 
-  const platformHref = getExternalUrl(footerLogoUrl) || 'https://mypowerly.com';
-  const agencyHref = getExternalUrl(agencySupportUrl) || platformHref;
-  const profileAvatar = typeof userProfile === 'string'
-    ? userProfile
-    : userProfile?.avatar_url || userProfile?.avatar || userProfile?.image_url || '';
-  const profileName = typeof userProfile === 'object'
-    ? userProfile?.name || userProfile?.display_name || 'User profile'
-    : 'User profile';
-
   return (
     <div style={{ 
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontFamily: "'Poppins', system-ui, -apple-system, sans-serif",
       position: 'fixed',
       bottom: '-5px',
       right: '-5px',
@@ -637,6 +582,10 @@ const W9Widget = () => {
                 from { opacity: 0; transform: translateY(var(--shortcut-rise)) scale(0.55); }
                 to { opacity: 1; transform: translateY(0) scale(1); }
               }
+              @keyframes shortcut-pop-out {
+                from { opacity: 1; transform: translateY(0) scale(1); }
+                to { opacity: 0; transform: translateY(var(--shortcut-rise)) scale(0.55); }
+              }
               @keyframes fadeIn {
                 0% { opacity: 0; transform: translateY(5px); }
                 100% { opacity: 1; transform: translateY(0); }
@@ -647,13 +596,14 @@ const W9Widget = () => {
             <div className="relative">
               <button
                 type="button"
-                className={shortcutButtonClass}
-                style={{ width: 52, height: 52 }}
+                className={shortcutButtonClass + ' hover:brightness-110 active:scale-95'}
+                style={{ width: 52, height: 52, backgroundColor: shortcutsOpen ? '#2b5a7d' : '#f5a623', color: shortcutsOpen ? '#fff' : '#0b1d51' }}
                 aria-label={shortcutsOpen ? 'Hide service shortcuts' : 'Show service shortcuts'}
                 aria-expanded={shortcutsOpen}
                 aria-controls="widget-service-shortcuts"
                 onClick={() => {
                   setShortcutTooltip(null);
+                  if (!shortcutsOpen) setShortcutMenuMounted(true);
                   setShortcutsOpen(open => !open);
                 }}
               >
@@ -663,22 +613,25 @@ const W9Widget = () => {
                   <circle cx="19" cy="12" r="2.2" />
                 </svg>
               </button>
-              {shortcutsOpen && (
+              {shortcutMenuMounted && (
                 <div
                   id="widget-service-shortcuts"
                   role="group"
                   aria-label="Service shortcuts"
+                  aria-hidden={!shortcutsOpen}
+                  inert={!shortcutsOpen}
                   onScroll={() => setShortcutTooltip(null)}
-                  className="pointer-events-auto absolute bottom-full right-0 mb-2 max-h-[calc(100dvh-76px)] overflow-y-auto [scrollbar-width:none]"
+                  className={(shortcutsOpen ? 'pointer-events-auto' : 'pointer-events-none') + ' absolute bottom-full right-0 mb-2 max-h-[calc(100dvh-76px)] overflow-y-auto [scrollbar-width:none]'}
                 >
                   <div className="flex flex-col gap-2">
                     {serviceOptions.filter(option => option.value).map((option, index) => (
                       <button
                         key={option.value}
                         type="button"
-                        className={shortcutButtonClass + ' motion-safe:animate-[shortcut-pop_240ms_ease-out_both]'}
-                        style={{ '--shortcut-rise': ((shortcutCount - index) * 52 + 4) + 'px', animationDelay: ((shortcutCount - index - 1) * 30) + 'ms' }}
+                        className={shortcutButtonClass + (shortcutsOpen ? ' motion-safe:animate-[shortcut-pop_240ms_ease-out_both]' : ' motion-safe:animate-[shortcut-pop-out_170ms_ease-in_both]')}
+                        style={{ '--shortcut-rise': ((shortcutCount - index) * 52 + 4) + 'px', animationDelay: ((shortcutsOpen ? shortcutCount - index - 1 : index) * 30) + 'ms' }}
                         aria-label={option.label}
+                        disabled={!shortcutsOpen}
                         onPointerEnter={event => {
                           if (event.pointerType === 'mouse') showShortcutTooltip(event.currentTarget, option.label);
                         }}
@@ -726,51 +679,41 @@ const W9Widget = () => {
           maxHeight: canShowShortcuts ? 'calc(100dvh - 96px)' : 'calc(100dvh - 24px)',
           height: panelHeight,
           backgroundColor: 'white',
-          borderRadius: '16px',
-          border: '2px solid #d1d5db',
+          borderRadius: '20px',
+          border: '1px solid #e5e7eb',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           transition: 'height 0.3s ease'
         }}>
           <div style={{
-            background: '#2b5a7d',
+            background: 'linear-gradient(100deg, #06153c, #071f52)',
             color: 'white',
-            padding: '8px 14px',
+            padding: '12px 16px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            borderTopLeftRadius: '16px',
-            borderTopRightRadius: '16px',
+            borderTopLeftRadius: '20px',
+            borderTopRightRadius: '20px',
             flexShrink: 0
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              {!showServiceForm && !chatTab && !demoService && <WidgetBrandAvatar imageUrl={siteLogoUrl} className="h-10 w-10 p-1" />}
               {(showServiceForm || chatTab || demoService) && (
                 <button
+                  type="button"
                   onClick={handleBackButton}
                   disabled={loading}
-                  style={{
-                    background: 'rgba(255,255,255,0.2)',
-                    border: 'none',
-                    color: 'white',
-                    fontSize: '18px',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'background 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                  aria-label="Back to services"
+                  className="shrink-0 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white hover:opacity-75 disabled:opacity-50"
+                  style={{ width: 36, height: 40, padding: 0, background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  ←
+                  <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m15 5-7 7 7 7" />
+                  </svg>
                 </button>
               )}
-              <h3 title={siteName} style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '16px', fontWeight: 700, color: 'white' }}>{siteName}</h3>
+              <h3 title={headerTitle} style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '19px', fontWeight: 600, color: 'white' }}>{headerTitle}</h3>
             </div>
             <button
               onClick={handleClose}
@@ -796,33 +739,11 @@ const W9Widget = () => {
               ×
             </button>
           </div>
-          <div style={{
-            background: '#1e4a63',
-            padding: '3px 10px',
-            borderTop: '1px solid rgba(255,255,255,0.15)',
-            flexShrink: 0,
-            textAlign: 'center',
-            overflow: 'hidden'
-          }}>
-            <span style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: '#fbbf24',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: 'block'
-            }}>
-              Get Instant W-9 &amp; 1099 Tax Forms with AI
-            </span>
-          </div>
-
           <div ref={contentRef} style={{ 
             flex: 1,
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: '10px',
-            paddingTop: chatTab ? 0 : '10px',
+            padding: chatTab ? '0' : '10px',
             paddingBottom: '14px',
             minHeight: 0,
             display: 'flex',
@@ -952,7 +873,7 @@ const W9Widget = () => {
                 </div>
                 {availableServices.aiChatbot && (
                   <div id="chat-panel-ai" role="tabpanel" aria-labelledby="chat-tab-ai" tabIndex={0} hidden={chatTab !== 'ai'} className="min-h-0 flex-1">
-                    <DemoAiChat />
+                    <DemoAiChat siteName={siteName} siteLogoUrl={siteLogoUrl} />
                   </div>
                 )}
                 {availableServices.liveChat && (
@@ -978,147 +899,14 @@ const W9Widget = () => {
             ) : demoService ? (
               <DemoService key={demoService} service={demoService} />
             ) : !showServiceForm ? (
-              <>
-                <div style={{
-                  background: 'linear-gradient(135deg, #2b5a7d 0%, #1e4a63 100%)',
-                  margin: '-16px -16px 0 -16px',
-                  padding: '18px 16px',
-                  textAlign: 'center',
-                  color: 'white',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center'
-                }}>
-                  <img src="/parrot.svg" alt="Parrot" style={{ width: '36px', height: '36px', marginBottom: '8px', transform: 'scaleX(-1)' }} />
-                  <h2 style={{
-                    margin: '0 0 6px 0',
-                    fontSize: '20px',
-                    fontWeight: 600,
-                    color: 'white',
-                    lineHeight: '1.1'
-                  }}>
-                    Welcome to {siteName}
-                  </h2>
-                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: '13px', lineHeight: '1.2' }}>
-                    Select a service below. We're here to help 24x7.
-                  </p>
-                </div>
-
-                <div style={{ padding: '12px 0' }}>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: '#374151'
-                  }}>
-                    Select a service
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setServiceDropdownOpen(!serviceDropdownOpen);
-                        if (!serviceDropdownOpen) {
-                          setTimeout(() => {
-                            contentRef.current?.scrollTo({ top: contentRef.current.scrollHeight, behavior: 'smooth' });
-                          }, 100);
-                        }
-                      }}
-                        style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '2px solid #e5e7eb',
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        backgroundColor: 'white',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        outline: 'none',
-                        transition: 'border 0.2s',
-                        color: selectedService ? '#374151' : '#9ca3af'
-                      }}
-                    >
-                      <span>{serviceOptions.find(opt => opt.value === selectedService)?.label || 'Choose a service...'}</span>
-                      <span style={{ 
-                        transform: serviceDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.2s'
-                      }}>▼</span>
-                    </button>
-                    {serviceDropdownOpen && (
-                      <div style={{
-                        position: 'absolute',
-                        top: 'calc(100% + 4px)',
-                        left: 0,
-                        right: 0,
-                        backgroundColor: 'white',
-                        border: '2px solid #e5e7eb',
-                        borderRadius: '10px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                        zIndex: 1000,
-                        maxHeight: 184,
-                        overflowY: 'auto'
-                      }}>
-                        {serviceOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedService(option.value);
-                              setW9SentTo('');
-                              setServiceDropdownOpen(false);
-                            }}
-                            disabled={!option.value}
-                            style={{
-                              width: '100%',
-                              padding: '12px 16px',
-                              border: 'none',
-                              backgroundColor: selectedService === option.value ? '#f0f9ff' : 'white',
-                              textAlign: 'left',
-                              cursor: option.value ? 'pointer' : 'default',
-                              fontSize: '14px',
-                              color: option.value ? '#374151' : '#9ca3af',
-                              transition: 'background 0.15s'
-                            }}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleServiceSelect(selectedService)}
-                  disabled={!selectedService}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    background: selectedService ? '#2b5a7d' : '#cbd5e1',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '10px',
-                    cursor: selectedService ? 'pointer' : 'not-allowed',
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    boxShadow: selectedService ? '0 4px 12px rgba(43, 90, 125, 0.4)' : 'none',
-                    transition: 'all 0.2s',
-                    opacity: selectedService ? 1 : 0.6
-                  }}
-                >
-                  Continue →
-                </button>
-                </div>
-              </>
-
+              <WidgetHome
+                siteName={siteName}
+                options={serviceOptions}
+                selectedService={selectedService}
+                onServiceChange={value => { setSelectedService(value); setW9SentTo(''); }}
+                onContinue={() => handleServiceSelect(selectedService)}
+                scrollContainerRef={contentRef}
+              />
             ) : (
               <W9QuickRequest
                 name={name} setName={setName} email={email} setEmail={setEmail}
@@ -1134,63 +922,7 @@ const W9Widget = () => {
             )}
           </div>
 
-          <div className="w-full mt-auto text-xs" style={{ flexShrink: 0 }}>
-            <div className="flex items-center justify-between w-full gap-1 px-2 py-1.5 bg-gray-50 border-t border-gray-200">
-              <div className="flex flex-1 items-center gap-1.5">
-                <a href={platformHref} target="_blank" rel="noopener noreferrer" title="Visit MyPowerly" className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
-                <img
-                  src={adminLogoUrl || DEFAULT_PLATFORM_LOGO}
-                  alt="Platform logo"
-                  className="h-7 w-7 rounded object-contain"
-                  onError={(event) => { event.currentTarget.src = DEFAULT_PLATFORM_LOGO; }}
-                />
-                </a>
-              </div>
-
-              <div className="flex flex-1 justify-center">
-                <a href={agencyHref} target="_blank" rel="noopener noreferrer" title={agencyName || 'Agency Support'} className="flex flex-shrink-0 max-w-full items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-gray-200 shadow-2xs text-[11px] text-gray-600 font-medium transition-colors hover:bg-gray-50">
-                  {agencyLogo ? (
-                    <img src={agencyLogo} alt={agencyName || 'Agency logo'} className="h-4 max-w-16 object-contain" />
-                  ) : (
-                    <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 14a8 8 0 0 1 16 0" /><path d="M18 19c0 1.1-.9 2-2 2h-1v-4h3v2ZM6 19c0 1.1.9 2 2 2h1v-4H6v2Z" /></svg>
-                  )}
-                  <span className="max-w-24 truncate">{agencyName || 'Agency Support'}</span>
-                </a>
-              </div>
-
-              <div className="flex flex-1 items-center justify-end gap-1">
-                {customSocialLinks.map((link) => {
-                  const socialBrand = getSocialBrand(link.url);
-
-                  return (
-                    <a key={link.id || link.url} href={getExternalUrl(link.url)} target="_blank" rel="noopener noreferrer" title={link.label || link.name || 'Social link'} className="flex-shrink-0 rounded-full p-1 transition-transform hover:scale-110">
-                      <span
-                        className="relative flex w-5 h-5 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-white"
-                        style={{ backgroundColor: socialBrand.color }}
-                      >
-                        {socialBrand.label}
-                        <img src={link.icon_url || link.iconUrl || getFaviconUrl(link.url)} alt="" className="absolute inset-0 w-5 h-5 bg-transparent object-contain" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
-                      </span>
-                    </a>
-                  );
-                })}
-                {profileAvatar ? (
-                  <img src={profileAvatar} alt={profileName} title={profileName} className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-200 object-cover" />
-                ) : customSocialLinks.length === 0 ? (
-                  <svg aria-label="User profile" className="flex-shrink-0 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="3" /><path d="M6 20a6 6 0 0 1 12 0" /></svg>
-                ) : null}
-              </div>
-            </div>
-            {poweredBy.url ? (
-              <a href={poweredBy.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center border-t border-gray-100 px-4 py-1.5 text-[10px] font-medium text-gray-500 transition-colors hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
-                Powered by {poweredBy.name}
-              </a>
-            ) : (
-              <div className="flex items-center justify-center border-t border-gray-100 px-4 py-1.5 text-[10px] font-medium text-gray-500">
-                Powered by {poweredBy.name}
-              </div>
-            )}
-          </div>
+          <WidgetFooter content={footerContent} />
         </div>
       )}
     </div>
