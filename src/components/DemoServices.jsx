@@ -66,6 +66,10 @@ function DemoEmailForm() {
           <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#2b5a7d]" />
           <span>Yes, I’d be happy to receive text messages.</span>
         </label>
+        <label className="flex items-start gap-2 text-[13px] leading-5 text-[#334155]">
+          <input type="checkbox" name="marketingEmails" className="mt-0.5 h-4 w-4 shrink-0 accent-[#2b5a7d]" />
+          <span>Yes, I'd like to receive marketing emails with news and offers.</span>
+        </label>
         <div className="text-right">
           <button
             type="button"
@@ -74,11 +78,11 @@ function DemoEmailForm() {
             onClick={() => setShowTextDetails(previous => !previous)}
             className="min-h-7 text-sm font-medium text-[#2b5a7d] underline underline-offset-2"
           >
-            {showTextDetails ? 'Show less' : 'Show more'}
+            {showTextDetails ? 'Hide text-message details' : 'Text-message details'}
           </button>
         </div>
         <p id="demo-email-text-details" hidden={!showTextDetails} className="rounded-md bg-gray-50 p-2 text-xs leading-5 text-gray-600">
-          This optional checkbox previews consent to receive text messages. Choosing it here does not sign you up for texts.
+          The text-message checkbox previews consent to receive texts. Choosing it here does not sign you up for texts.
         </p>
       </div>
       <label className="block space-y-1 text-[14px] font-bold text-[#0b1d51]">
@@ -96,7 +100,7 @@ function DemoEmailForm() {
           {emailMessageLimit - message.length} characters left
         </span>
       </label>
-      <p className="text-xs text-gray-600">Use sample details. This demo does not send email or texts.</p>
+      <p className="text-xs text-gray-600">Use sample details. This demo does not send messages or subscribe you to emails or texts.</p>
       <button type="submit" className="w-full rounded-lg bg-[#0b3c81] px-3 py-2.5 text-sm font-bold text-white hover:bg-[#082f67] focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-2 focus-visible:outline-[#0b3c81]">Preview message</button>
       <p role="status" className="text-sm text-gray-600">
         {previewComplete && 'Message preview complete.'}
