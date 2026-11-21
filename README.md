@@ -2,10 +2,45 @@
 
 A customer service widget that provides service requests, AI chatbot, and live chat functionality.
 
-## Getting Started
+## Run and test locally
 
-- `npm install`
-- `npm run dev`
+1. Clone the widget repository and install dependencies:
+
+   ~~~bash
+   git clone https://github.com/iregmember5/mypowerly-widget.git
+   cd mypowerly-widget
+   npm install
+   ~~~
+
+2. In your MyPowerly account, select the workspace you want to test and register
+   test.com as a MyPowerly Widget domain in that workspace. Copy the widget ID
+   from that workspace's **Get Embed Code** action. Use that ID for
+   YOUR_WIDGET_ID below. The domain and widget ID must belong to the same
+   workspace.
+
+3. Start the local development server:
+
+   ~~~bash
+   npm run dev
+   ~~~
+
+   It runs at http://localhost:5174 by default. If port 5174 is occupied,
+   use the local URL printed by Vite.
+
+4. Open this URL in your browser, replacing YOUR_WIDGET_ID with the copied ID:
+
+   ~~~text
+   http://localhost:5174/?id=YOUR_WIDGET_ID&dev=true&devDomain=https%3A%2F%2Ftest.com
+   ~~~
+
+The dev=true parameter makes the local widget validate against the domain in
+devDomain. The encoded value above is https://test.com. You can open this URL
+directly; you do not need a separate test HTML page.
+
+If the widget says the site is not registered, check that test.com is
+registered in the same workspace as the ID in the URL and that the registered
+domain matches https://test.com. To test another registered domain, URL-encode
+its full origin and replace the devDomain value.
 
 ## Features
 
