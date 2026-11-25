@@ -161,7 +161,7 @@ export default function WidgetHome({ siteName, options, selectedService, onServi
       </div>
 
       {/* Select */}
-      <div className="mt-6">
+      <div className="my-auto">
         <span id="widget-service-label" className="mb-3 block text-[24px] font-extrabold leading-tight tracking-tight text-[#0b1d51]">
           Select a service
         </span>
@@ -217,7 +217,7 @@ export default function WidgetHome({ siteName, options, selectedService, onServi
         <button
           type="button"
           onClick={onContinue}
-          style={{ background: 'linear-gradient(100deg, #06123f 0%, #062660 52%, #087bfa 100%)' }}
+          style={{ background: 'linear-gradient(100deg, #06123f 0%, #06408e 42%, #008cff 100%)' }}
           className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-[18px] font-bold text-white shadow-md transition hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0875e8]"
         >
           Continue

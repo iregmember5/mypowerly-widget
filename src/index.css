@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+.widget-gradient-button {
+  background-image: linear-gradient(100deg, #06123f 0%, #06408e 26%, #008cff 50%, #129fff 64%, #00c7ff 100%);
+  background-size: 200% 100%;
+  background-position: left center;
+  transition: background-position 220ms ease-out, filter 180ms ease-out, transform 180ms ease-out;
+}
+
+.widget-gradient-button:hover,
+.widget-gradient-button:focus-visible {
+  background-position: right center;
+  filter: brightness(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .widget-gradient-button {
+    transition: none;
+  }
+}

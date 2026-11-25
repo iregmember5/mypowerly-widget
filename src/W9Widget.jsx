@@ -19,7 +19,7 @@ const shortcutIcons = {
   'schedule-a-tour': 'M3 5h18v16H3zM7 3v4m10-4v4M3 10h18m-14 4h3m4 0h3m-10 3h3m4 0h3',
 };
 
-const shortcutButtonClass = 'pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-white bg-[#2b5a7d] text-white shadow-md hover:bg-[#1e4a63] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white';
+const shortcutButtonClass = 'widget-gradient-button pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-white text-white shadow-md transition-[filter,transform] duration-200 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white';
 
 const panelHeight = 580;
 
@@ -80,7 +80,6 @@ const W9Widget = () => {
   const [showExclamation, setShowExclamation] = useState(true);
   const [siteName, setSiteName] = useState('MyPowerly');
   const [siteDomain, setSiteDomain] = useState('');
-  const [siteLogoUrl, setSiteLogoUrl] = useState('');
   const [footerContent, setFooterContent] = useState(() => readFooterContent({}, 'MyPowerly'));
   const contentRef = useRef(null);
   const launcherDrag = useRef(null);
@@ -168,7 +167,6 @@ const W9Widget = () => {
     setValidationError(null);
     setSiteName(data.site_name || new URL(domain).hostname);
     setSiteDomain(new URL(domain).hostname);
-    setSiteLogoUrl(data.widget_settings?.footer_logo || '');
     const settings = data.widget_settings;
     const choices = readPublicTaxChoices(settings);
     setW9ChaserEnabled(choices.enabled);
@@ -598,8 +596,8 @@ const W9Widget = () => {
             <div className="relative">
               <button
                 type="button"
-                className={shortcutButtonClass + ' hover:brightness-110 active:scale-95'}
-                style={{ width: 52, height: 52, backgroundColor: shortcutsOpen ? '#f5a623' : '#2b5a7d', color: shortcutsOpen ? '#0b1d51' : '#fff' }}
+                className={shortcutButtonClass}
+                style={{ width: 52, height: 52, background: shortcutsOpen ? '#f5a623' : undefined, color: shortcutsOpen ? '#0b1d51' : '#fff' }}
                 aria-label={shortcutsOpen ? 'Hide service shortcuts' : 'Show service shortcuts'}
                 aria-expanded={shortcutsOpen}
                 aria-controls="widget-service-shortcuts"
@@ -700,7 +698,7 @@ const W9Widget = () => {
             flexShrink: 0
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-              {!showServiceForm && !chatTab && !demoService && <WidgetBrandAvatar imageUrl={siteLogoUrl} className="h-10 w-10 p-1" />}
+              {!showServiceForm && !chatTab && !demoService && <WidgetBrandAvatar className="h-10 w-10 p-1" />}
               {(showServiceForm || chatTab || demoService) && (
                 <button
                   type="button"
@@ -875,7 +873,7 @@ const W9Widget = () => {
                 </div>
                 {availableServices.aiChatbot && (
                   <div id="chat-panel-ai" role="tabpanel" aria-labelledby="chat-tab-ai" tabIndex={0} hidden={chatTab !== 'ai'} className="min-h-0 flex-1">
-                    <DemoAiChat siteName={siteName} siteLogoUrl={siteLogoUrl} />
+                    <DemoAiChat siteName={siteName} />
                   </div>
                 )}
                 {availableServices.liveChat && (

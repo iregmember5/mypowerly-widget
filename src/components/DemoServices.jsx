@@ -319,7 +319,7 @@ export function DemoService({ service }) {
   );
 }
 
-export function DemoAiChat({ siteName, siteLogoUrl }) {
+export function DemoAiChat({ siteName }) {
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState([]);
   const [liked, setLiked] = useState(false);
@@ -350,7 +350,7 @@ export function DemoAiChat({ siteName, siteLogoUrl }) {
 
 
         <div className="flex items-start gap-2">
-          <WidgetBrandAvatar imageUrl={siteLogoUrl} className="mt-5 h-10 w-10 border-2 border-[#e2a51b] p-1" />
+          <WidgetBrandAvatar className="mt-5 h-10 w-10 border-2 border-[#e2a51b] p-1" />
           <div className="min-w-0 flex-1">
             <p className="mb-1 text-[12px] font-bold">Mia</p>
             <div className="rounded-2xl rounded-tl-sm bg-gradient-to-br from-[#eef6ff] to-[#d9ebf8] px-3 py-3 text-[12px] leading-[1.5] text-[#071849]">
@@ -365,7 +365,7 @@ export function DemoAiChat({ siteName, siteLogoUrl }) {
               {message.question}
             </p>
             <div className="flex items-start gap-2">
-              <WidgetBrandAvatar imageUrl={siteLogoUrl} className="mt-5 h-10 w-10 border-2 border-[#e2a51b] p-1" />
+              <WidgetBrandAvatar className="mt-5 h-10 w-10 border-2 border-[#e2a51b] p-1" />
               <div className="min-w-0 flex-1">
                 <p className="mb-1 text-[12px] font-bold">Mia</p>
                 <p className="rounded-2xl rounded-tl-sm bg-gradient-to-br from-[#eef6ff] to-[#d9ebf8] px-3 py-3 text-[12px] leading-[1.5]">{message.reply}</p>
