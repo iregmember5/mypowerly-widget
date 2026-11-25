@@ -14,6 +14,7 @@ const shortcutIcons = {
   chat: 'M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l1.6-4.1A8.5 8.5 0 1 1 21 11.5ZM8 12h.01M12 12h.01M16 12h.01',
   'email-us': 'M3 5h18v14H3zM3 6l9 7 9-7',
   'contact-us': 'M5 3h4l2 5-2.5 2a13 13 0 0 0 5.5 5.5l2-2.5 5 2v4a2 2 0 0 1-2 2C10.2 21 3 13.8 3 5a2 2 0 0 1 2-2Z',
+  'pay-us': 'M3 5h18v14H3zM3 10h18M7 15h5',
   'schedule-an-appointment': 'M3 5h18v16H3zM7 3v4m10-4v4M3 10h18m-9 3v5m-2.5-2.5h5',
   'schedule-a-tour': 'M3 5h18v16H3zM7 3v4m10-4v4M3 10h18m-14 4h3m4 0h3m-10 3h3m4 0h3',
 };
@@ -132,6 +133,7 @@ const W9Widget = () => {
     { value: '', label: 'Choose a service...' },
     { value: 'email-us', label: 'Email Us' },
     { value: 'contact-us', label: 'Contact Us' },
+    { value: 'pay-us', label: 'Pay Us' },
     ...(w9ChaserEnabled ? [{ value: 'w9-request', label: 'W9 - Vendor Compliance' }] : []),
     { value: 'schedule-an-appointment', label: 'Schedule and Appointment' },
     ...(chatTabs.length ? [{ value: 'chat', label: 'Chat' }] : []),

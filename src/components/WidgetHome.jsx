@@ -17,7 +17,16 @@ function ServiceIcon({ value }) {
       </svg>
     );
   }
-  if (value === 'w9-request') {
+  if (value === 'pay-us') {
+    return (
+      <svg {...common}>
+        <rect x="2" y="4" width="19" height="15" rx="2" />
+        <path d="M2 9h19M5 15h5" />
+        <circle cx="18" cy="18" r="5" fill="#f5a623" stroke="none" />
+        <text x="18" y="20.5" textAnchor="middle" fontSize="7" fontWeight="800" fill="#fff" stroke="none">$</text>
+      </svg>
+    );
+  }  if (value === 'w9-request') {
     return (
       <svg {...common}>
         <path d="M6 3h8l4 4v14H6z" />

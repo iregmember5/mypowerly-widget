@@ -8,6 +8,7 @@ const buttonClass = 'rounded-lg bg-[#2b5a7d] px-3 py-2 text-sm font-semibold tex
 const services = {
   'email-us': { title: 'Email Us', description: 'Write a sample message to the team.' },
   'contact-us': { title: 'Contact Us' },
+  'pay-us': { title: 'Pay Us', description: 'Enter a sample amount and reference to preview a payment.' },
   'schedule-an-appointment': { title: 'Schedule and Appointment', action: 'Preview appointment', confirmation: 'Appointment preview complete. No appointment was booked.', eventName: 'Appointment' },
   'schedule-a-tour': { title: 'Schedule a Tour', eventName: 'Tour', action: 'Preview booking', confirmation: 'Tour preview complete. No booking was made.' },
 };
@@ -250,9 +251,59 @@ function DemoSchedule({ details }) {
   );
 }
 
+function DemoPayment() {
+  const [amount, setAmount] = useState('');
+  const [reference, setReference] = useState('');
+  const [previewComplete, setPreviewComplete] = useState(false);
+
+  return (
+    <form className="space-y-4" onSubmit={event => {
+      event.preventDefault();
+      setPreviewComplete(true);
+    }} onChange={() => setPreviewComplete(false)}>
+      <div className="space-y-4 rounded-[14px] border border-[#4f8aaa] bg-[#e8f2fb] p-3">
+        <label className="block space-y-1 text-[14px] font-bold text-[#0b1d51]">
+          <span>PAYMENT AMOUNT *</span>
+          <div className="flex min-h-11 items-center rounded-lg border border-[#334155] bg-white focus-within:outline focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-[#0b3c81]">
+            <span aria-hidden="true" className="pl-3 text-[17px] font-bold text-[#0b1d51]">$</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0.01"
+              step="0.01"
+              required
+              value={amount}
+              onChange={event => setAmount(event.target.value)}
+              placeholder="0.00"
+              className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[16px] text-[#111a3a] outline-none"
+            />
+          </div>
+        </label>
+        <label className="block space-y-1 text-[14px] font-bold text-[#0b1d51]">
+          <span>REFERENCE (OPTIONAL)</span>
+          <input
+            type="text"
+            maxLength={100}
+            value={reference}
+            onChange={event => setReference(event.target.value)}
+            placeholder="Invoice or account number"
+            className={emailFieldClass}
+          />
+        </label>
+      </div>
+      <p className="text-[13px] leading-5 text-[#334155]">Preview only. No payment information is collected and no charge will be made.</p>
+      <button type="submit" className="w-full rounded-lg bg-[#0b3c81] px-3 py-2.5 text-sm font-bold text-white hover:bg-[#082f67] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b3c81]">
+        Preview payment
+      </button>
+      <p role="status" className="text-[13px] text-[#334155]">
+        {previewComplete && 'Payment preview ready for $' + Number(amount).toFixed(2) + '. No payment was made.'}
+      </p>
+    </form>
+  );
+}
 export function DemoService({ service }) {
   const details = services[service];
-  const prominent = service === 'email-us' || service === 'contact-us';
+  const prominent = service === 'email-us' || service === 'contact-us' || service === 'pay-us';
   return (
     <section aria-labelledby="demo-service-title" className={'flex flex-1 flex-col gap-4 ' + (prominent ? 'p-0' : 'p-2')}>
       <div className="space-y-1">
@@ -262,6 +313,7 @@ export function DemoService({ service }) {
       </div>
       {service === 'email-us' && <DemoEmailForm />}
       {service === 'contact-us' && <DemoContact />}
+      {service === 'pay-us' && <DemoPayment />}
       {details.eventName && <DemoSchedule details={details} />}
     </section>
   );
