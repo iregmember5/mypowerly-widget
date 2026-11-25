@@ -599,7 +599,7 @@ const W9Widget = () => {
               <button
                 type="button"
                 className={shortcutButtonClass + ' hover:brightness-110 active:scale-95'}
-                style={{ width: 52, height: 52, backgroundColor: shortcutsOpen ? '#2b5a7d' : '#f5a623', color: shortcutsOpen ? '#fff' : '#0b1d51' }}
+                style={{ width: 52, height: 52, backgroundColor: shortcutsOpen ? '#f5a623' : '#2b5a7d', color: shortcutsOpen ? '#0b1d51' : '#fff' }}
                 aria-label={shortcutsOpen ? 'Hide service shortcuts' : 'Show service shortcuts'}
                 aria-expanded={shortcutsOpen}
                 aria-controls="widget-service-shortcuts"
