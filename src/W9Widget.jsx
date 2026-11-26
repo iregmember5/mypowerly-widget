@@ -142,7 +142,10 @@ const W9Widget = () => {
       return;
     }
     const expanded = canShowShortcuts && shortcutMenuMounted;
-    notifyResize(expanded ? 246 : canShowShortcuts ? 152 : 80, expanded ? 80 + shortcutCount * 52 : 80);
+    // Allow for the enlarged parrot and its hover scale inside the host iframe.
+    const launcherWidth = canShowShortcuts ? 194 : 120;
+    const launcherHeight = 122;
+    notifyResize(expanded ? 246 : launcherWidth, expanded ? Math.max(launcherHeight, 80 + shortcutCount * 52) : launcherHeight);
   }, [isOpen, isValidating, canShowShortcuts, shortcutMenuMounted, shortcutCount]);
   useEffect(() => {
     if (shortcutsOpen || !shortcutMenuMounted) return;
@@ -504,7 +507,7 @@ const W9Widget = () => {
       pointerEvents: isOpen ? 'auto' : 'none'
     }}>
       {(!isOpen || canShowShortcuts) && (
-        <div className="relative flex items-end gap-2" style={isOpen ? { position: 'absolute', right: 15, bottom: 15 } : undefined}>
+        <div className="relative flex items-end gap-4" style={isOpen ? { position: 'absolute', right: 15, bottom: 15 } : undefined}>
           <button
             aria-label={isOpen ? 'Close widget' : 'Open widget — drag to move'}
             aria-expanded={isOpen}
