@@ -36,6 +36,7 @@ const W9Widget = () => {
   const [hasOpenedLiveChat, setHasOpenedLiveChat] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [birdFlights, setBirdFlights] = useState({});
   const [shortcutMenuMounted, setShortcutMenuMounted] = useState(false);
   const [shortcutTooltip, setShortcutTooltip] = useState(null);
   const [name, setName] = useState('');
@@ -77,7 +78,6 @@ const W9Widget = () => {
   const [isDevelopmentMode, setIsDevelopmentMode] = useState(false);
   const [chatWidgetUrl, setChatWidgetUrl] = useState(null);
   const [apiBaseUrl, setApiBaseUrl] = useState(null);
-  const [showExclamation, setShowExclamation] = useState(true);
   const [siteName, setSiteName] = useState('MyPowerly');
   const [siteDomain, setSiteDomain] = useState('');
   const [footerContent, setFooterContent] = useState(() => readFooterContent({}, 'MyPowerly'));
@@ -114,16 +114,6 @@ const W9Widget = () => {
     postDrag('WIDGET_DRAG_END', event, start);
   };
 
-  useEffect(() => {
-    const showHideExclamation = () => {
-      setShowExclamation(true);
-      setTimeout(() => setShowExclamation(false), 3000);
-    };
-    showHideExclamation();
-    const interval = setInterval(showHideExclamation, 120000);
-    return () => clearInterval(interval);
-  }, []);
-
   const chatTabs = [
     ...(availableServices.aiChatbot ? [{ id: 'ai', label: 'AI Chat' }] : []),
     ...(availableServices.liveChat ? [{ id: 'live', label: 'Live Chat' }] : []),
@@ -156,10 +146,10 @@ const W9Widget = () => {
   }, [isOpen, isValidating, canShowShortcuts, shortcutMenuMounted, shortcutCount]);
   useEffect(() => {
     if (shortcutsOpen || !shortcutMenuMounted) return;
-    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 330;
+    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 980;
     const timer = setTimeout(() => setShortcutMenuMounted(false), delay);
     return () => clearTimeout(timer);
-  }, [shortcutsOpen, shortcutMenuMounted]);
+  }, [shortcutsOpen, shortcutMenuMounted, shortcutCount]);
   const devMode = urlParams.get('dev') === 'true';
   const devDomain = urlParams.get('devDomain') || 'https://test.com';
 
@@ -514,7 +504,7 @@ const W9Widget = () => {
       pointerEvents: isOpen ? 'auto' : 'none'
     }}>
       {(!isOpen || canShowShortcuts) && (
-        <div className="flex items-end gap-2" style={isOpen ? { position: 'absolute', right: 15, bottom: 15 } : undefined}>
+        <div className="relative flex items-end gap-2" style={isOpen ? { position: 'absolute', right: 15, bottom: 15 } : undefined}>
           <button
             aria-label={isOpen ? 'Close widget' : 'Open widget — drag to move'}
             aria-expanded={isOpen}
@@ -548,35 +538,7 @@ const W9Widget = () => {
             onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
             onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
-            {showExclamation && (
-              <div style={{
-                position: 'absolute',
-                top: '-45px',
-                right: '-10px',
-                backgroundColor: 'white',
-                color: '#2b5a7d',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                whiteSpace: 'nowrap',
-                animation: 'fadeIn 0.3s ease-in'
-              }}>
-                We're here! 👋
-                <div style={{
-                  position: 'absolute',
-                  bottom: '-6px',
-                  right: '20px',
-                  width: '0',
-                  height: '0',
-                  borderLeft: '6px solid transparent',
-                  borderRight: '6px solid transparent',
-                  borderTop: '6px solid white'
-                }}></div>
-              </div>
-            )}
-            <img draggable={false} src="/parrot.svg" alt="Chat" style={{ width: '70px', height: '70px', position: 'relative', zIndex: 1 }} />
+            <img draggable={false} src="/parrot.gif" alt="Chat" style={{ width: '70px', height: '70px', position: 'relative', zIndex: 1, transform: 'translateY(-5px) scale(1.85)' }} />
             <style>{`
               @keyframes shortcut-pop {
                 from { opacity: 0; transform: translateY(var(--shortcut-rise)) scale(0.55); }
@@ -590,27 +552,110 @@ const W9Widget = () => {
                 0% { opacity: 0; transform: translateY(5px); }
                 100% { opacity: 1; transform: translateY(0); }
               }
+              .shell-piece { transform-origin: 28px 52px; transition: transform 420ms ease-in; }
+              .widget-egg-button[aria-expanded="false"] .shell-piece,
+              .widget-egg-button[aria-expanded="true"] .whole-egg { visibility: hidden; }
+              .widget-egg-button[aria-expanded="true"] .shell-piece { transform: var(--land); }
+              .hatch-bird { display: none; }
+              @media (prefers-reduced-motion: no-preference) {
+                .widget-egg-button[aria-expanded="false"] svg { animation: egg-bob 2.3s ease-in-out infinite; }
+                @keyframes egg-bob { 50% { transform: translateY(-4px) rotate(-3deg); } }
+                .widget-egg-button[data-reforming="true"] .shell-piece { visibility: visible; }
+                .widget-egg-button[data-reforming="true"] .whole-egg { visibility: hidden; animation: restore-shell 420ms step-end forwards; }
+                .widget-egg-button[data-reforming="true"] svg { animation: none; }
+                @keyframes restore-shell { to { visibility: visible; } }
+                .releasing .service-disc { animation: release-disc 180ms ease-in var(--release-delay) both; }
+                .releasing .hatch-bird { display: block; position: absolute; animation: release-flight 740ms ease-in var(--release-delay) both; }
+                .releasing .bird-wing { transform-origin: 17px 17px; animation: bird-flap 110ms ease-in-out infinite alternate; }
+                @keyframes release-disc { to { opacity: 0; transform: scale(.5); } }
+                @keyframes release-flight {
+                  0% { opacity: 0; transform: scale(.45); }
+                  20% { opacity: 1; transform: scale(1); }
+                  67% { opacity: 1; }
+                  100% { opacity: 0; transform: translate(var(--release-x),var(--release-y)) rotate(var(--release-bank)) scale(.35); }
+                }
+                .hatching { animation: hatch-flight 800ms linear var(--hatch-delay) both; }
+                .hatching .hatch-bird { display: block; position: absolute; animation: hatch-bird 800ms linear var(--hatch-delay) both; }
+                .hatching .service-disc { animation: hatch-disc 800ms linear var(--hatch-delay) both; }
+                .hatching .bird-wing { transform-origin: 17px 17px; animation: bird-flap 165ms ease-in-out 7 alternate; animation-delay: var(--hatch-delay); }
+                @keyframes bird-flap {
+                  from { transform: rotate(-16deg) scaleY(1); }
+                  to { transform: rotate(18deg) scaleY(-.72); }
+                }
+                @keyframes hatch-flight {
+                  0% { opacity: 0; transform: translate(-4px,var(--shortcut-rise)) scale(.42); }
+                  12% { opacity: 1; }
+                  55% { animation-timing-function: cubic-bezier(.3,.3,.55,1); transform: translate(var(--flight-x),calc(var(--shortcut-rise) * .45)) rotate(var(--flight-bank)) scale(.85); }
+                  100% { opacity: 1; transform: none; }
+                }
+                @keyframes hatch-bird {
+                  0%, 43% { opacity: 1; transform: scale(1); }
+                  78%, 100% { opacity: 0; transform: scale(.7); }
+                }
+                @keyframes hatch-disc {
+                  0%, 43% { opacity: 0; transform: scale(.45); }
+                  78% { opacity: 1; transform: scale(.88); }
+                  100% { opacity: 1; transform: none; }
+                }
+              }
+              @media (prefers-reduced-motion: reduce) { .shell-piece { transition: none; } }
             `}</style>
           </button>
           {canShowShortcuts && (
             <div className="relative">
               <button
                 type="button"
-                className={shortcutButtonClass}
-                style={{ width: 52, height: 52, background: shortcutsOpen ? '#f5a623' : undefined, color: shortcutsOpen ? '#0b1d51' : '#fff' }}
+                className="widget-egg-button relative z-10 pointer-events-auto grid shrink-0 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5a623]"
+                style={{ width: 52, height: 52 }}
                 aria-label={shortcutsOpen ? 'Hide service shortcuts' : 'Show service shortcuts'}
                 aria-expanded={shortcutsOpen}
+                data-reforming={shortcutMenuMounted && !shortcutsOpen}
                 aria-controls="widget-service-shortcuts"
                 onClick={() => {
                   setShortcutTooltip(null);
-                  if (!shortcutsOpen) setShortcutMenuMounted(true);
+                  if (!shortcutsOpen) {
+                    setBirdFlights(Object.fromEntries(serviceOptions.filter(option => option.value).map(option => [
+                      option.value, {
+                        '--flight-x': (Math.random() * 10 - 6) + 'px',
+                        '--flight-bank': (Math.random() * 36 - 18) + 'deg',
+                        '--hatch-delay': (80 + Math.random() * 190) + 'ms',
+                      },
+                    ])));
+                    setShortcutMenuMounted(true);
+                  } else {
+                    setBirdFlights(Object.fromEntries(serviceOptions.filter(option => option.value).map(option => [
+                      option.value, {
+                        '--release-x': -(35 + Math.random() * 65) + 'px',
+                        '--release-y': -(25 + Math.random() * 90) + 'px',
+                        '--release-bank': (Math.random() * 50 - 25) + 'deg',
+                        '--release-delay': (Math.random() * 150) + 'ms',
+                      },
+                    ])));
+                  }
                   setShortcutsOpen(open => !open);
                 }}
               >
-                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="5" cy="12" r="2.2" />
-                  <circle cx="12" cy="12" r="2.2" />
-                  <circle cx="19" cy="12" r="2.2" />
+                <svg aria-hidden="true" width="52" height="52" viewBox="0 0 56 60" fill="none" style={{ overflow: 'visible', filter: 'drop-shadow(0 3px 4px rgba(6,21,60,.25))' }}>
+                  <defs>
+                    <radialGradient id="egg-gold" cx="33%" cy="24%" r="85%">
+                      <stop stopColor="#fff8c9" /><stop offset=".58" stopColor="#ffdf78" /><stop offset="1" stopColor="#eba633" />
+                    </radialGradient>
+                  </defs>
+                  <g fill="url(#egg-gold)" stroke="#c78e32" strokeWidth="1" strokeLinejoin="round">
+                    <path className="shell-piece" style={{ '--burst': 'translate(-5px,-7px) rotate(-12deg)', '--land': 'translate(-9px,5px) rotate(-46deg) scale(.55)' }}
+                      d="M28 4C18 4 8 20 7 34l9-4 4 5 8-6-3-9 5-6Z" />
+                    <path className="shell-piece" style={{ '--burst': 'translate(5px,-6px) rotate(14deg)', '--land': 'translate(11px,6px) rotate(52deg) scale(.52)' }}
+                      d="M28 4C39 4 48 22 49 34l-8-5-6 6-7-6-3-9 5-6Z" />
+                    <g className="shell-piece" style={{ '--burst': 'translateY(2px)', '--land': 'translateY(2px) rotate(-6deg) scale(.85)' }}>
+                      <path d="M7 34l9-4 4 5 8-6 7 6 6-6 8 5c1 13-8 21-21 21S6 47 7 34Z" />
+
+                    </g>
+                  </g>
+                  <g className="whole-egg">
+                    <path d="M28 4C18 4 7 22 7 36c0 12 9 19 21 19s21-7 21-19C49 22 38 4 28 4Z" fill="url(#egg-gold)" stroke="#dfa858" strokeWidth="1.3" />
+                    <path d="M16 21q2-5 5-8" stroke="#fff9de" strokeWidth="3" strokeLinecap="round" />
+                    <path d="M13.8 26.5l.6-1.6" stroke="#fff6d8" strokeWidth="1.8" strokeLinecap="round" />
+                  </g>
                 </svg>
               </button>
               {shortcutMenuMounted && (
@@ -621,15 +666,15 @@ const W9Widget = () => {
                   aria-hidden={!shortcutsOpen}
                   inert={!shortcutsOpen}
                   onScroll={() => setShortcutTooltip(null)}
-                  className={(shortcutsOpen ? 'pointer-events-auto' : 'pointer-events-none') + ' absolute bottom-full right-0 mb-2 max-h-[calc(100dvh-76px)] overflow-y-auto [scrollbar-width:none]'}
+                  className="pointer-events-none absolute bottom-0 right-0 pb-[60px] pl-24 max-h-[calc(100dvh-16px)] overflow-y-auto [scrollbar-width:none]"
                 >
                   <div className="flex flex-col gap-2">
                     {serviceOptions.filter(option => option.value).map((option, index) => (
                       <button
                         key={option.value}
                         type="button"
-                        className={shortcutButtonClass + (shortcutsOpen ? ' motion-safe:animate-[shortcut-pop_240ms_ease-out_both]' : ' motion-safe:animate-[shortcut-pop-out_170ms_ease-in_both]')}
-                        style={{ '--shortcut-rise': ((shortcutCount - index) * 52 + 4) + 'px', animationDelay: ((shortcutsOpen ? shortcutCount - index - 1 : index) * 30) + 'ms' }}
+                        className={'relative grid h-11 w-11 shrink-0 place-items-center rounded-full' + (shortcutsOpen ? ' hatching pointer-events-auto' : ' releasing')}
+                        style={{ '--shortcut-rise': ((shortcutCount - index) * 52 + 4) + 'px', ...birdFlights[option.value] }}
                         aria-label={option.label}
                         disabled={!shortcutsOpen}
                         onPointerEnter={event => {
@@ -645,6 +690,14 @@ const W9Widget = () => {
                         aria-pressed={isOpen && activeService === option.value}
                         onClick={() => handleShortcutClick(option.value)}
                       >
+                        <svg aria-hidden="true" className="hatch-bird" width="32" height="32" viewBox="0 0 32 32">
+                          <g transform="translate(32 0) scale(-1 1)">
+                          <path fill="#1689dc" d="M2 24l6-10c3-5 7-5 11-4 1-7 10-7 10 0 0 7-5 14-14 13l-9 5 3-6Z" />
+                          <path className="bird-wing" fill="#0756a1" d="M18 18C12 19 6 12 5 4c6 3 13 6 15 12Z" />
+                          <path fill="#ffc044" d="m28 8 4 2-4 3Z" />
+                          </g>
+                        </svg>
+                        <span className={shortcutButtonClass + ' service-disc pointer-events-none'}>
                         {option.value === 'w9-request' ? (
                           <span aria-hidden="true" className="text-sm font-bold">W9</span>
                         ) : (
@@ -652,6 +705,7 @@ const W9Widget = () => {
                             <path d={shortcutIcons[option.value]} />
                           </svg>
                         )}
+                        </span>
                       </button>
                     ))}
                   </div>
